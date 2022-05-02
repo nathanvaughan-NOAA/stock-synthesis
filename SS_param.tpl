@@ -100,10 +100,10 @@ PARAMETER_SECTION
   4darray Save_PopBio(styr-3*nseas,TimeMax_Fcast_std+nseas,1,2*pop,1,gmorph,0,nages)
 
  LOCAL_CALCS
-   mat_len=1.0;
-   mat_age=1.0;
-   mat_fec_len=1.0;
-   fec_len=1.0;
+   mat_len = 1.0;
+   mat_age = 1.0;
+   mat_fec_len = 1.0;
+   fec_len = 1.0;
  END_CALCS
 
   3darray age_age(0,N_ageerr+store_agekey_add,1,n_abins2,0,gender*nages+gender-1)
@@ -147,12 +147,27 @@ PARAMETER_SECTION
  LOCAL_CALCS
   Ave_Size.initialize();
 //  if(SR_parm(N_SRparm2)!=0.0 || SR_parm_PH(N_SRparm2)>0) {SR_autocorr=1;} else {SR_autocorr=0;}  // flag for recruitment autocorrelation
-  if(do_recdev==1)
-  {k=recdev_start; j=recdev_end; s=1; p=-1;}
-  else if(do_recdev>=2)
-  {s=recdev_start; p=recdev_end; k=1; j=-1;}
+  if (do_recdev == 1)
+  {
+    k = recdev_start; 
+    j = recdev_end; 
+    s = 1; 
+    p = -1;
+  }
+  else if (do_recdev >= 2)
+  {
+    s = recdev_start; 
+    p = recdev_end; 
+    k = 1; 
+    j = -1;
+  }
   else
-  {s=1; p=-1; k=1; j=-1;}
+  {
+    s = 1; 
+    p = -1; 
+    k = 1; 
+    j = -1;
+  }
 
  END_CALCS
 
@@ -169,13 +184,24 @@ PARAMETER_SECTION
   vector recdev(recdev_first,YrMax);
 
  LOCAL_CALCS
-  if(do_recdev==0){
-  	s=-1;
-  } else{s=YrMax;}
-  if(Do_Impl_Error>0){
-  	k=Fcast_recr_PH2; j=YrMax;}
+  if (do_recdev == 0)
+  {
+  	s = -1;
+  } 
   else
-  {k=-1; j=-1;}
+  {
+    s=YrMax;
+  }
+  if (Do_Impl_Error>0)
+  {
+    k = Fcast_recr_PH2; 
+    j = YrMax;
+  }
+  else
+  {
+    k=-1; 
+    j=-1;
+  }
 
  END_CALCS
   init_bounded_vector Fcast_recruitments(recdev_end+1,s,recdev_LO,recdev_HI,Fcast_recr_PH2)
@@ -322,14 +348,18 @@ PARAMETER_SECTION
   3darray Zrate2(1,pop,1,gmorph,0,nages)
 
  LOCAL_CALCS
-  if(N_Fparm>0)    // continuous F
-     {k=N_Fparm;
-      Fparm_PH_dim.deallocate();
-      Fparm_PH_dim.allocate(1,N_Fparm);
-      for (int j=1;j<=N_Fparm;j++) Fparm_PH_dim(j) = Fparm_PH[j];
-      }
+  if (N_Fparm > 0)    // continuous F
+  {
+    k = N_Fparm;
+    Fparm_PH_dim.deallocate();
+    Fparm_PH_dim.allocate(1,N_Fparm);
+    for (int j = 1; j <= N_Fparm; j++) 
+      Fparm_PH_dim(j) = Fparm_PH[j];
+  }
   else
-    {k=-1;}
+  {
+    k=-1;
+  }
  END_CALCS
  //  defining F_rate as number_vector allows for Fparm_PH to be element specific
   init_bounded_number_vector F_rate(1,k,0.,max_harvest_rate,Fparm_PH_dim)
@@ -383,10 +413,10 @@ PARAMETER_SECTION
   3darray SzFreqTrans(1,SzFreq_Nmeth*nseas,1,nlength2,1,SzFreq_Nbins_seas_g);
 
 !!//  SS_Label_Info_5.1.5 #Selectivity-related parameters
-!!  echoinput<<" now dimension the selectivity arrays "<<N_selparm2<<endl;
-!! echoinput<<selparm_LO<<endl;
-!! echoinput<<selparm_HI<<endl;
-!! echoinput<<selparm_PH<<endl;
+!! echoinput << " now dimension the selectivity arrays " << N_selparm2 << endl;
+!! echoinput << selparm_LO << endl;
+!! echoinput << selparm_HI << endl;
+!! echoinput << selparm_PH << endl;
   init_bounded_number_vector selparm(1,N_selparm2,selparm_LO,selparm_HI,selparm_PH)
 
 //  init_bounded_matrix selparm_dev(1,N_selparm_dev,selparm_dev_minyr,selparm_dev_maxyr,-10,10,selparm_dev_PH)
@@ -405,14 +435,14 @@ PARAMETER_SECTION
   4darray discmort2_a(styr-3,YrMax,1,Nfleet,1,gender,0,nages)
   4darray sel_a_r(styr-3,YrMax,1,Nfleet,1,gender,0,nages)
 
-!!  echoinput<<" OK after dimension the selectivity arrays "<<endl;
-!!  echoinput<<" check "<<TwoD_AR_cnt<<" "<<TwoD_AR_cor_dim<<endl;
+!! echoinput << " OK after dimension the selectivity arrays " << endl;
+!! echoinput << " check " << TwoD_AR_cnt << " " << TwoD_AR_cor_dim << endl;
 
   3darray cor(1,TwoD_AR_cnt,1,TwoD_AR_cor_dim,1,TwoD_AR_cor_dim)
   3darray inv_cor(1,TwoD_AR_cnt,1,TwoD_AR_cor_dim,1,TwoD_AR_cor_dim)
   vector det_cor(1,TwoD_AR_cnt);
   matrix TwoD_AR_ave(1,TwoD_AR_cnt,TwoD_AR_amin,TwoD_AR_amax) //  ragged array for these averages
-!!  echoinput<<" OK after dimension the 2dar arrays "<<endl;
+!! echoinput << " OK after dimension the 2dar arrays " << endl;
 
 !!//  SS_Label_Info_5.1.6 #Create tag parameters and associated arrays
   matrix TG_alive(1,pop,1,gmorph)
@@ -424,7 +454,7 @@ PARAMETER_SECTION
   number overdisp     // overdispersion
 
  LOCAL_CALCS
-  k=Do_TG*(3*N_TG+2*Nfleet1);
+  k = Do_TG * (3 * N_TG + 2 * Nfleet1);
  END_CALCS
 
   init_bounded_number_vector TG_parm(1,k,TG_parm_LO,TG_parm_HI,TG_parm_PH);
@@ -437,10 +467,14 @@ PARAMETER_SECTION
   matrix parm_timevary(1,timevary_cnt,styr-1,YrMax);  //  time series of adjusted parm values for block and trend
 
  LOCAL_CALCS
-  if(Do_Forecast>0)
-  {k=TimeMax_Fcast_std+nseas;}
+  if (Do_Forecast > 0)
+  {
+    k = TimeMax_Fcast_std + nseas;
+  }
   else
-  {k=TimeMax+nseas;}
+  {
+    k = TimeMax + nseas;
+  }
  END_CALCS
 
 !!//  SS_Label_Info_5.1.7 #Create arrays for storing derived selectivity quantities for use in mortality calculations
@@ -564,6 +598,6 @@ PARAMETER_SECTION
   objective_function_value obj_fun
   number last_objfun
   vector phase_output(1,max_phase+1)
-  !!cout<<" end of parameter section "<<endl;
-  !!echoinput<<"end of parameter section"<<endl;
+  !! cout << " end of parameter section " << endl;
+  !! echoinput << "end of parameter section" << endl;
 //  }  // end of parameter section
