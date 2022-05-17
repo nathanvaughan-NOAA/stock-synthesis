@@ -17,5 +17,4 @@ cd "Compile"
 REM set CXX=cl
 set CXX=g++
 
-c:\admb\admb ss
-
+admb ss
