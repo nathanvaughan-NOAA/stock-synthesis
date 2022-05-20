@@ -10,217 +10,247 @@
 //  SS_Label_Info_2.0 #READ DATA FILE
 //  SS_Label_Info_2.1 #Read comments and dimension info
 //  SS_Label_Info_2.1.1 #Read and save comments at top of data file
-  number fif  //  end of file marker
+  number fif;  //  end of file marker
 
  LOCAL_CALCS
   ad_comm::change_datafile_name(datfilename);
-  if(finish_starter==999)
-  {N_warn++;  warning<<N_warn<<" "<<"finish_starter=999, so probably used a 3.24 starter.ss; please update"<<endl; finish_starter=3.30;  }
-  cout<<" reading from data file"<<endl;
-  ifstream Data_Stream(datfilename);   //  even if the global_datafile name is used, there still is a different logical device created
-  k=0;
-  N_DC=0;
-  while(k==0)
+  if (finish_starter==999)
   {
-    Data_Stream >>  readline;          // reads the line from input stream
-    if(length(readline)>2)
+    N_warn++;
+    warning << N_warn << " " << "finish_starter=999, so probably used a 3.24 starter.ss; please update" << endl;
+    finish_starter=3.30;
+  }
+
+  cout << " reading from data file" << endl;
+  ifstream Data_Stream(datfilename);   //  even if the global_datafile name is used, there still is a different logical device created
+  k = 0;
+  N_DC = 0;
+  while (k == 0)
+  {
+    Data_Stream >> readline;          // reads the line from input stream
+    if (length(readline) > 2)
     {
-      checkchar=readline(1);
-      k=strcmp(checkchar,"#");
-      checkchar=readline(1,2);
-      j=strcmp(checkchar,"#C");
-      if(j==0) {N_DC++; Data_Comments+=readline;}
+      checkchar = readline(1);
+      k = strcmp(checkchar,"#");
+      checkchar = readline(1,2);
+      j = strcmp(checkchar,"#C");
+      if (j == 0)
+      {
+        N_DC++;
+        Data_Comments += readline;
+      }
     }
   }
  END_CALCS
 
 !!//  SS_Label_Info_2.1.2 #Read model time dimensions
-  int read_seas_mo    //  1=read integer season; 2=read real months
+  int read_seas_mo;    //  1=read integer season; 2=read real months
  LOCAL_CALCS
-   read_seas_mo=2;
+   read_seas_mo = 2;
  END_CALCS
 
 
-  int N_subseas  //  number of subseasons within season; must be even number to get one to be mid_season
-  ivector timing_constants(1,6)
+  int N_subseas;  //  number of subseasons within season; must be even number to get one to be mid_season
+  ivector timing_constants(1,6);
  LOCAL_CALCS
   *(ad_comm::global_datafile) >> styr;  //start year of the model
-  echoinput<<styr<<" start year "<<endl;
+  echoinput << styr << " start year " << endl;
 
   *(ad_comm::global_datafile) >> endyr; // end year of the model
-  echoinput<<endyr<<" end year "<<endl;
+  echoinput << endyr << " end year " << endl;
 
   *(ad_comm::global_datafile) >> nseas;  //  number of seasons
-  echoinput<<nseas<<" N seasons "<<endl;
+  echoinput << nseas << " N seasons " << endl;
  END_CALCS
   init_vector seasdur(1,nseas);  // season duration; enter in units of months, fractions OK; will be rescaled to sum to 1.0 if total is greater than 11.9
 
  LOCAL_CALCS
-  echoinput<<seasdur<<" months/seas (fractions OK) "<<endl;
+  echoinput << seasdur << " months/seas (fractions OK) " << endl;
   *(ad_comm::global_datafile) >> N_subseas;
-  echoinput<<N_subseas<<" Number of subseasons (even number only; min 2) for calculation of ALK "<<endl;
-  mid_subseas=N_subseas/2 + 1;
-  timing_constants(1)=read_seas_mo;
-  timing_constants(2)=nseas;
-  timing_constants(3)=N_subseas;
-  timing_constants(4)=mid_subseas;
-  timing_constants(5)=styr;
-  timing_constants(6)=endyr;
+  echoinput << N_subseas << " Number of subseasons (even number only; min 2) for calculation of ALK " << endl;
+  mid_subseas = N_subseas / 2 + 1;
+  timing_constants(1) = read_seas_mo;
+  timing_constants(2) = nseas;
+  timing_constants(3) = N_subseas;
+  timing_constants(4) = mid_subseas;
+  timing_constants(5) = styr;
+  timing_constants(6) = endyr;
  END_CALCS
 
-  int TimeMax
-  int TimeMax_Fcast_std
-  int ALK_time_max
+  int TimeMax;
+  int TimeMax_Fcast_std;
+  int ALK_time_max;
   int eq_yr;
   int bio_yr;
   number sumseas;
 
   //  SS_Label_Info_2.1.3 #Set up seasons
-  vector seasdur_half(1,nseas)   // half a season
-  matrix subseasdur(1,nseas,1,N_subseas)   // cumulative time, within season, for each subseas
-  vector subseasdur_delta(1,nseas)  //  length of each subseason
+  vector seasdur_half(1,nseas);   // half a season
+  matrix subseasdur(1,nseas,1,N_subseas);   // cumulative time, within season, for each subseas
+  vector subseasdur_delta(1,nseas);  //  length of each subseason
   vector azero_seas(1,nseas);   // cumulative time, within year, up until begin of this season
 
  LOCAL_CALCS
-  sumseas=sum(seasdur);
-  if(sumseas>=11.9)
-    {
-      seasdur /=sumseas;
-      seas_as_year=0;
-      sumseas=12.0;  // to be sure it is exactly 12.
-    }
-  else
-    {
-      seasdur /=12.;
-      seas_as_year=1;
-      //  sumseas will now be used as the duration of the pseudo-year, rather than assuming year has 12 months;
-      if(nseas>1) { N_warn++; cout<<"exit with warning"<<endl;  warning<<N_warn<<" "<<"Error.  Can only have 1 season when during seasons as psuedo-years."<<endl;  exit(1);}
-    }
-  seasdur_half = seasdur*0.5;   // half a season
-  subseasdur_delta=seasdur/double(N_subseas);
-  TimeMax = styr+(endyr+50-styr)*nseas+nseas-1;
-  retro_yr=endyr+retro_yr;
-  ALK_time_max=(endyr-styr+51)*nseas*N_subseas;  //  sets maximum size for data array indexing 50 years into forecast
-//  ALK_time_max will be redefined after reading forecast's YrMax to accomodate forecasts longer than the 50 year data limit
-
-  azero_seas(1)=0.;
-  if(nseas>1)
-    for (s=2;s<=nseas;s++)  /* SS_loop: calculate azero_seas from cumulative sum of seasdur(s) */
-    {azero_seas(s)=sum(seasdur(1,s-1));}
-  subseasdur.initialize();
-  for (s=1;s<=nseas;s++)  /* SS_loop: for each season */
+  sumseas = sum(seasdur);
+  if (sumseas >= 11.9)
   {
-    for (subseas=2;subseas<=N_subseas;subseas++)  /* SS_loop: calculate cumulative time within season to start of each subseas */
+    seasdur /= sumseas;
+    seas_as_year = 0;
+    sumseas = 12.0;  // to be sure it is exactly 12.
+  }
+  else
+  {
+    seasdur /= 12.;
+    seas_as_year = 1;
+    //  sumseas will now be used as the duration of the pseudo-year, rather than assuming year has 12 months;
+    if (nseas > 1)
     {
-      subseasdur(s,subseas)=subseasdur(s,subseas-1)+seasdur(s)/double(N_subseas);
+      N_warn++;
+      cout << "exit with warning" << endl;
+      warning << N_warn << " " << "Error.  Can only have 1 season when during seasons as psuedo-years." << endl;
+      exit(1);
     }
   }
-  echoinput<<seasdur<<" processed season duration (frac. of year) "<<endl;
-  echoinput<<subseasdur_delta<<" processed subseason duration (frac. of year) "<<endl;
-  echoinput<<" processed subseason cumulative annual time within season "<<endl<<subseasdur<<endl;
-  if(seas_as_year==1)
+  seasdur_half = seasdur * 0.5;   // half a season
+  subseasdur_delta = seasdur / double(N_subseas);
+  TimeMax = styr + (endyr + 50 - styr) * nseas + nseas - 1;
+  retro_yr = endyr + retro_yr;
+  ALK_time_max = (endyr - styr + 51) * nseas * N_subseas;  //  sets maximum size for data array indexing 50 years into forecast
+//  ALK_time_max will be redefined after reading forecast's YrMax to accomodate forecasts longer than the 50 year data limit
+
+  azero_seas(1) = 0.;
+  if (nseas > 1)
+  {
+    for (s = 2; s <= nseas; s++)  /* SS_loop: calculate azero_seas from cumulative sum of seasdur(s) */
     {
-      echoinput<<"Season durations sum to <11.9, so SS3 assumes you are doing years as pseudo-seasons."<<endl<<
-      "There can be only 1 season in this timestep and SS3 will ignore month input and assume all observation occur at middle of this pseudo-year"<<endl<<
-      "mortality, growth and movement rates are per annum, so will get multiplied by the duration of this timestep as they are used."<<endl<<
-      "What gets reported as age is now age in timesteps; and input of age-specific M or K requires one entry per timestep"<<endl<<
-      "Similarly, output of age-specific quantities is in terms of number of timesteps, not real years"<<endl<<
-      "spawn_month and settlement_month in control file are best set to 1.0 when doing years as pseudo-seasons"<<endl;
-      N_warn++;
-       warning<<N_warn<<" "<<"Season durations sum to <11.9, so SS3 assumes you are doing years as pseudo-seasons."<<endl<<
-      "There can be only 1 season in this timestep and SS3 will ignore month input and assume all observation occur at middle of this pseudo-year"<<endl<<
-      "mortality, growth and movement rates are per annum, so will get multiplied by the duration of this timestep as they are used."<<endl<<
-      "What gets reported as age is now age in timesteps; and input of age-specific M or K requires one entry per timestep"<<endl<<
-      "Similarly, output of age-specific quantities is in terms of number of timesteps, not real years"<<endl<<
-      "spawn_month and settlement_month in control file are best set to 1.0 when doing years as pseudo-seasons"<<endl;
+      azero_seas(s) = sum(seasdur(1,s-1));
     }
+  }
+  subseasdur.initialize();
+  for (s = 1; s <= nseas; s++)  /* SS_loop: for each season */
+  {
+    for (subseas = 2; subseas <= N_subseas; subseas++)  /* SS_loop: calculate cumulative time within season to start of each subseas */
+    {
+      subseasdur(s,subseas) = subseasdur(s,subseas-1) + seasdur(s) / double(N_subseas);
+    }
+  }
+  echoinput << seasdur << " processed season duration (frac. of year) " << endl;
+  echoinput << subseasdur_delta << " processed subseason duration (frac. of year) " << endl;
+  echoinput << " processed subseason cumulative annual time within season " << endl<<subseasdur<<endl;
+  if (seas_as_year == 1)
+  {
+    echoinput << "Season durations sum to <11.9, so SS3 assumes you are doing years as pseudo-seasons." << endl <<
+    "There can be only 1 season in this timestep and SS3 will ignore month input and assume all observation occur at middle of this pseudo-year" << endl <<
+    "mortality, growth and movement rates are per annum, so will get multiplied by the duration of this timestep as they are used." << endl <<
+    "What gets reported as age is now age in timesteps; and input of age-specific M or K requires one entry per timestep" << endl <<
+    "Similarly, output of age-specific quantities is in terms of number of timesteps, not real years" << endl <<
+    "spawn_month and settlement_month in control file are best set to 1.0 when doing years as pseudo-seasons" << endl;
+    N_warn++;
+    warning << N_warn << " " << "Season durations sum to <11.9, so SS3 assumes you are doing years as pseudo-seasons." << endl <<
+    "There can be only 1 season in this timestep and SS3 will ignore month input and assume all observation occur at middle of this pseudo-year" << endl <<
+    "mortality, growth and movement rates are per annum, so will get multiplied by the duration of this timestep as they are used." << endl <<
+    "What gets reported as age is now age in timesteps; and input of age-specific M or K requires one entry per timestep" << endl <<
+    "Similarly, output of age-specific quantities is in terms of number of timesteps, not real years" << endl <<
+    "spawn_month and settlement_month in control file are best set to 1.0 when doing years as pseudo-seasons" << endl;
+  }
 
  END_CALCS
 
 //  SPAWN-RECR:   define spawning season
-  init_number spawn_rd
-   number spawn_month  //  month that spawning occurs
-   int spawn_seas    //  spawning occurs in this season
-   int spawn_subseas  //
-   number spawn_time_seas  //  real time within season for mortality calculation
+  init_number spawn_rd;
+   number spawn_month;  //  month that spawning occurs
+   int spawn_seas;    //  spawning occurs in this season
+   int spawn_subseas;  //
+   number spawn_time_seas;  //  real time within season for mortality calculation
  LOCAL_CALCS
-  if(read_seas_mo==1)  //  so reading values of integer season
-    {
-      spawn_seas=spawn_rd;
-      spawn_month=1.0 + azero_seas(spawn_seas)/sumseas;
-      spawn_subseas=1;
-      spawn_time_seas=0.0;
-    }
+  if (read_seas_mo == 1)  //  so reading values of integer season
+  {
+    spawn_seas = spawn_rd;
+    spawn_month = 1.0 + azero_seas(spawn_seas) / sumseas;
+    spawn_subseas = 1;
+    spawn_time_seas = 0.0;
+  }
   else  //  reading values of month
+  {
+    spawn_month = spawn_rd;
+    temp1 = (spawn_month - 1.0) / sumseas;  //  spawn_month as fraction of year
+    if (spawn_month >= 13.0)
     {
-      spawn_month=spawn_rd;
-      temp1=(spawn_month-1.0)/sumseas;  //  spawn_month as fraction of year
-      if(spawn_month>=13.0)
-      {N_warn++; cout<<"fatal read error, see warning"<<endl; warning<<N_warn<<" Fatal error. spawn_month must be <13.0, end of year is 12.99, value read is: "<<spawn_month<<endl; exit(1);}
-      spawn_seas=1;  // earlist possible spawn_seas;
-      spawn_subseas=1;  //  earliest possible subseas in spawn_seas
-      temp=azero_seas(spawn_seas)+subseasdur_delta(spawn_seas);  //  starting value
-      while(temp<=temp1+1.0e-9)
-      {
-        if(spawn_subseas==N_subseas)
-          {spawn_seas++; spawn_subseas=1;}
-          else
-          {spawn_subseas++;}
-          temp+=subseasdur_delta(spawn_seas);
-      }
-      spawn_time_seas=(temp1-azero_seas(spawn_seas))/seasdur(spawn_seas);  //  remaining fraction of year converted to fraction of season
+      N_warn++;
+      cout << "fatal read error, see warning" << endl;
+      warning << N_warn << " Fatal error. spawn_month must be <13.0, end of year is 12.99, value read is: " << spawn_month << endl;
+      exit(1);
     }
-   echoinput<<"SPAWN month: "<<spawn_month<<"; seas: "<<spawn_seas<<"; subseas_for_ALK: "<<spawn_subseas<<"; timing_in_season: "<<spawn_time_seas<<endl;
-   if(spawn_seas>nseas)
-   {
-     N_warn++;  warning<<N_warn<<" spawn_seas index must be <= nseas "<<endl;
-   }
+    spawn_seas = 1;  // earlist possible spawn_seas;
+    spawn_subseas = 1;  //  earliest possible subseas in spawn_seas
+    temp = azero_seas(spawn_seas) + subseasdur_delta(spawn_seas);  //  starting value
+    while (temp <= temp1+1.0e-9)
+    {
+      if (spawn_subseas == N_subseas)
+      {
+        spawn_seas++;
+        spawn_subseas = 1;
+      }
+      else
+      {
+        spawn_subseas++;
+      }
+      temp += subseasdur_delta(spawn_seas);
+    }
+    spawn_time_seas = (temp1 - azero_seas(spawn_seas)) / seasdur(spawn_seas);  //  remaining fraction of year converted to fraction of season
+  }
+  echoinput << "SPAWN month: " << spawn_month << "; seas: " << spawn_seas << "; subseas_for_ALK: " << spawn_subseas << "; timing_in_season: " << spawn_time_seas << endl;
+  if (spawn_seas > nseas)
+  {
+    N_warn++;
+    warning << N_warn << " spawn_seas index must be <= nseas " <<endl;
+  }
  END_CALCS
-  int pop   // number of areas
-  int gender_rd
-  int gender  //  number of sexes
-  int nages  //  maxage as accumulator
-  int nages2  //  doubled vector to store males after females = gender*nages+gender-1
-  int Nsurvey
-  int Nfleet
-  int Nfleet1  // used with 3.24 for number of fishing fleets
+  int pop;   // number of areas
+  int gender_rd;
+  int gender;  //  number of sexes
+  int nages;  //  maxage as accumulator
+  int nages2;  //  doubled vector to store males after females = gender*nages+gender-1
+  int Nsurvey;
+  int Nfleet;
+  int Nfleet1;  // used with 3.24 for number of fishing fleets
 
  LOCAL_CALCS
   {
     *(ad_comm::global_datafile) >> gender_rd;
-    gender=abs(gender_rd);
-    if(gender_rd<0) echoinput<<"gender read is negative, so total spawnbiomass will be multiplied by frac_female parameter"<<endl;
+    gender = abs(gender_rd);
+    if (gender_rd < 0) echoinput << "gender read is negative, so total spawnbiomass will be multiplied by frac_female parameter" << endl;
     *(ad_comm::global_datafile) >> nages;
-    echoinput<<gender<<" N sexes "<<endl<<"Accumulator age "<<nages<<endl;
+    echoinput << gender << " N sexes " << endl << "Accumulator age " << nages << endl;
     *(ad_comm::global_datafile) >> pop;
-    echoinput<<pop<<" N_areas "<<endl;
+    echoinput << pop << " N_areas " << endl;
     *(ad_comm::global_datafile) >> Nfleet;
-    Nfleet1=0;
-    Nsurvey=0;
-    nages2=gender*nages+gender-1;
-    echoinput<<Nfleet<<" total number of fishing fleets and surveys "<<endl;
+    Nfleet1 = 0;
+    Nsurvey = 0;
+    nages2 = gender * nages + gender - 1;
+    echoinput << Nfleet << " total number of fishing fleets and surveys " << endl;
   }
  END_CALCS
 
 //  SS_Label_Info_2.1.5  #Define fleets, surveys and areas
-  imatrix pfleetname(1,Nfleet,1,2)
-  ivector fleet_type(1,Nfleet)   // 1=fleet with catch; 2=discard only fleet with F; 3=survey(ignore catch); 4=M2=predator
+  imatrix pfleetname(1,Nfleet,1,2);
+  ivector fleet_type(1,Nfleet);   // 1=fleet with catch; 2=discard only fleet with F; 3=survey(ignore catch); 4=M2=predator
   int N_bycatch;  //  number of bycatch only fleets
   int N_pred;  //  number of predator fleets
   ivector N_catchfleets(0,pop); //  number of bycatch plus landed catch fleets by area
-  imatrix fish_fleet_area(0,pop,0,Nfleet)   // list of catch_fleets that are type 1 or 2, so have a F
-  ivector predator(1,Nfleet)   // list of "fleets" that are type 4, so are added to M rather than to F
-  ivector predator_rev(1,Nfleet)   // predator given f
-  ivector need_catch_mult(1,Nfleet)  // 0=no, 1=need catch_multiplier parameter
-  vector surveytime(1,Nfleet)   // (-1, 1) code for fisheries to indicate use of season-wide observations, or specifically timed observations
-  ivector fleet_area(1,Nfleet)    // areas in which each fleet/survey operates
-  vector catchunits1(1,Nfleet)  // 1=biomass; 2=numbers
-//  vector catch_se_rd1(1,Nfleet)  // units are se of log(catch); use -1 to ignore input catch values for discard only fleets
-  vector catchunits(1,Nfleet)
-//  vector catch_se_rd(1,Nfleet)
+  imatrix fish_fleet_area(0,pop,0,Nfleet);   // list of catch_fleets that are type 1 or 2, so have a F
+  ivector predator(1,Nfleet);   // list of "fleets" that are type 4, so are added to M rather than to F
+  ivector predator_rev(1,Nfleet);   // predator given f
+  ivector need_catch_mult(1,Nfleet);  // 0=no, 1=need catch_multiplier parameter
+  vector surveytime(1,Nfleet);   // (-1, 1) code for fisheries to indicate use of season-wide observations, or specifically timed observations
+  ivector fleet_area(1,Nfleet);    // areas in which each fleet/survey operates
+  vector catchunits1(1,Nfleet);  // 1=biomass; 2=numbers
+//  vector catch_se_rd1(1, Nfleet);  // units are se of log(catch); use -1 to ignore input catch values for discard only fleets
+  vector catchunits(1,Nfleet);
+//  vector catch_se_rd(1, Nfleet);
   matrix catch_se(styr-nseas,TimeMax,1,Nfleet);
-  matrix fleet_setup(1,Nfleet,1,5)  // type, timing, area, units, need_catch_mult
-  matrix bycatch_setup(1,Nfleet,1,6)
+  matrix fleet_setup(1,Nfleet,1,5);  // type, timing, area, units, need_catch_mult
+  matrix bycatch_setup(1,Nfleet,1,6);
     // 1:  fleet number; must match fleet definitions"<<endl;
     // 2:  1=include dead bycatch in total dead catch for F0.1 and MSY optimizations and forecast ABC; 2=omit from total catch for these purposes (but still include the mortality)"<<endl;
     // 3:  1=Fmult scales with other fleets; 2=bycatch F constant at input value; 3=mean bycatch F from range of years"<<endl;
@@ -228,151 +258,188 @@
     // 5:  last year of range"<<endl;
     // 6:  not used"<<endl;
 
-  ivector YPR_mask(1,Nfleet)
-  ivector retParmLoc(1,1)
+  ivector YPR_mask(1,Nfleet);
+  ivector retParmLoc(1,1);
   int N_retParm
 
  LOCAL_CALCS
   bycatch_setup.initialize();
   YPR_mask.initialize();
-  catch_se=0.01;  //  initialize to a small value
+  catch_se = 0.01;  //  initialize to a small value
   {
-    N_bycatch=0;
+    N_bycatch = 0;
     N_catchfleets.initialize();
     fish_fleet_area.initialize();
-    N_pred=0;
+    N_pred = 0;
     predator.initialize();
-    echoinput<<"rows are fleets; columns are: Fleet_#, fleet_type, timing, area, units, need_catch_mult"<<endl;
-    for(f=1;f<=Nfleet;f++)
+    echoinput << "rows are fleets; columns are: Fleet_#, fleet_type, timing, area, units, need_catch_mult" << endl;
+    for (f = 1; f <= Nfleet; f++)
     {
-      *(ad_comm::global_datafile) >> fleet_setup(f)(1,5);
+      *(ad_comm::global_datafile) >> fleet_setup(f)(1, 5);
       *(ad_comm::global_datafile) >> anystring;
-      fleetname+=anystring;
+      fleetname += anystring;
       fleet_type(f) = int(fleet_setup(f,1));
-      if(fleet_type(f)==2) N_bycatch++;
-      surveytime(f) = fleet_setup(f,2)/fabs(fleet_setup(f,2));
-      fleet_setup(f,2)=surveytime(f);
+      if (fleet_type(f) == 2)
+        N_bycatch++;
+      surveytime(f) = fleet_setup(f,2) / fabs(fleet_setup(f,2));
+      fleet_setup(f,2) = surveytime(f);
       p=int(fleet_setup(f,3));  //area
-      fleet_area(f)=p;
+      fleet_area(f) = p;
       catchunits(f) = int(fleet_setup(f,4));
       need_catch_mult(f) = int(fleet_setup(f,5));
-      if(fleet_type(f)<=2)
+      if (fleet_type(f) <= 2)
+      {
+        N_catchfleets(0)++;  //  overall N
+        N_catchfleets(p)++;  //  count by area
+        fish_fleet_area(0, N_catchfleets(0)) = f;  //  to find the original fleet index
+        fish_fleet_area(p, N_catchfleets(p)) = f;  //  to find the original fleet index
+        YPR_mask(f) = 1;
+        if (surveytime(f) != -1.)
         {
-          N_catchfleets(0)++;  //  overall N
-          N_catchfleets(p)++;  //  count by area
-          fish_fleet_area(0,N_catchfleets(0))=f;  //  to find the original fleet index
-          fish_fleet_area(p,N_catchfleets(p))=f;  //  to find the original fleet index
-          YPR_mask(f)=1;
-          if(surveytime(f)!=-1.)
-          {N_warn++;  warning<<N_warn<<" "<<"fishing fleet: "<<f<<" surveytime read as: "<<surveytime(f)<<" normally is -1 for fishing fleet; can override for indiv. obs. using 1000+month"<<endl;}
+          N_warn++;
+          warning << N_warn << " " << "fishing fleet: " << f << " surveytime read as: " << surveytime(f) << " normally is -1 for fishing fleet; can override for indiv. obs. using 1000+month" << endl;
         }
-        else if (fleet_type(f)==3)
-          {if(surveytime(f)==-1.)
-          {N_warn++;  warning<<N_warn<<" "<<"survey fleet: "<<f<<" surveytime read as: "<<surveytime(f)<<" SS3 resets to 1 for all survey fleets, and always overridden by indiv. obs. month"<<endl;
-            surveytime(f)=1.;}
-          }
-        else if (fleet_type(f)==4)  //  predator, e.g. red tide
+      }
+      else if (fleet_type(f) == 3)
+      {
+        if (surveytime(f) == -1.)
+        {
+          N_warn++;
+          warning << N_warn << " " << "survey fleet: " << f << " surveytime read as: " << surveytime(f) << " SS3 resets to 1 for all survey fleets, and always overridden by indiv. obs. month" << endl;
+          surveytime(f) = 1.;
+        }
+      }
+      else if (fleet_type(f) == 4)  //  predator, e.g. red tide
+      {
+        N_pred++;
+        predator(N_pred) = f;
+        predator_rev(f) = N_pred;
+        surveytime(f) = -1.;
+      }
+      if (fleet_type(f) > 1 && need_catch_mult(f) > 0)
+      {
+        N_warn++;
+        cout << "exit with warning" << endl;
+        warning << N_warn << " " << "Need_catch_mult can be used only for fleet_type=1 fleet= " << f << endl;
+        exit(1);
+      }
+      echoinput << f << " # " << fleet_setup(f) << " # " << fleetname(f) << endl;
+      if ( f > 1)
+      {  // check for duplicate fleet names, which will break r4ss
+      	for (int f1 = 1; f1 < f; f1++)
+        {
+          if (fleetname(f1) == fleetname(f))
           {
-            N_pred++;
-            predator(N_pred)=f;
-            predator_rev(f)=N_pred;
-            surveytime(f)=-1.;
+            N_warn++;
+            cout << "exit with warning" << endl;
+            warning << N_warn << " duplicate fleet names for fleets: " << f1 << " and " << f << "; " << fleetname(f) << "; SS3 will exit" << endl;
+            exit(1);
           }
-      if(fleet_type(f)>1 && need_catch_mult(f)>0)
-        {N_warn++; cout<<"exit with warning"<<endl; warning<<N_warn<<" "<<"Need_catch_mult can be used only for fleet_type=1 fleet= "<<f<<endl; exit(1);}
-      echoinput<<f<<" # "<<fleet_setup(f)<<" # "<<fleetname(f)<<endl;
-      if(f>1){  // check for duplicate fleet names, which will break r4ss
-      	for(int f1=1;f1<f;f1++){
-      		if(fleetname(f1)==fleetname(f)){
-      			N_warn++; cout<<"exit with warning"<<endl;
-      			warning<<N_warn<<" duplicate fleet names for fleets: "<<f1<<" and "<<f<<"; "<<fleetname(f)<<"; SS3 will exit"<<endl; exit(1);
-      		}
       	}
       }
     }
 
-    if(N_bycatch>0)
+    if (N_bycatch > 0)
     {
-      echoinput<<"Now read bycatch fleet characteristics for "<<N_bycatch<<" fleets"<<endl;
-    echoinput<<"1:  fleet number; must match fleet definitions"<<endl;
-    echoinput<<"2:  1=include dead bycatch in total dead catch for F0.1 and MSY optimizations and forecast ABC; 2=omit from total catch for these purposes (but still include the mortality)"<<endl;
-    echoinput<<"3:  1=Fmult scales with other fleets; 2=bycatch F constant at input value; 3=mean bycatch F from range of years"<<endl;
-    echoinput<<"4:  F or first year of range"<<endl;
-    echoinput<<"5:  last year of range"<<endl;
-    echoinput<<"6:  not used"<<endl;
-       for(j=1;j<=N_bycatch;j++)
+      echoinput << "Now read bycatch fleet characteristics for " << N_bycatch << " fleets" << endl;
+      echoinput << "1:  fleet number; must match fleet definitions" << endl;
+      echoinput << "2:  1=include dead bycatch in total dead catch for F0.1 and MSY optimizations and forecast ABC; 2=omit from total catch for these purposes (but still include the mortality)" << endl;
+      echoinput << "3:  1=Fmult scales with other fleets; 2=bycatch F constant at input value; 3=mean bycatch F from range of years" << endl;
+      echoinput << "4:  F or first year of range" << endl;
+      echoinput << "5:  last year of range" << endl;
+      echoinput << "6:  not used" << endl;
+       for (j = 1; j <= N_bycatch; j++)
       {
         *(ad_comm::global_datafile) >> f;
-        bycatch_setup(f,1)=f;
+        bycatch_setup(f, 1) = f;
         *(ad_comm::global_datafile) >> bycatch_setup(f)(2,6);
-        if(fleet_type(f)==2)
+        if (fleet_type(f) == 2)
         {
-          echoinput<<f<<" "<<fleetname(f)<<" bycatch_setup: "<<bycatch_setup(f)<<endl;
-          if(bycatch_setup(f,2)==2)  //  omit bycatch fleet catch from YPR optimize
+          echoinput << f << " " << fleetname(f) << " bycatch_setup: " << bycatch_setup(f) << endl;
+          if (bycatch_setup(f, 2) == 2)  //  omit bycatch fleet catch from YPR optimize
           {
-            YPR_mask(f)=0;
+            YPR_mask(f) = 0;
           }
-          if(bycatch_setup(f,3)==3)  //  check year range
+          if (bycatch_setup(f, 3) == 3)  //  check year range
           {
-            if(bycatch_setup(f,4)<styr)  bycatch_setup(f,4)=styr;
-            if(bycatch_setup(f,5)>retro_yr)  bycatch_setup(f,5)=retro_yr;
+            if (bycatch_setup(f, 4) < styr)
+              bycatch_setup(f, 4) = styr;
+            if (bycatch_setup(f, 5) > retro_yr)
+              bycatch_setup(f, 5) = retro_yr;
           }
         }
         else
         {
-          N_warn++; cout<<"exit with warning"<<endl;  warning<<N_warn<<" "<<"fleet "<<f<<" is in bycatch list but not designated as bycatch fleet"<<endl; exit(1);
+          N_warn++;
+            cout << "exit with warning" << endl;
+            warning << N_warn << " " << "fleet " << f << " is in bycatch list but not designated as bycatch fleet" << endl;
+            exit(1);
         }
       }
     }
-    echoinput<<"YPR_optimize_mask: "<<YPR_mask<<endl;
+    echoinput << "YPR_optimize_mask: " << YPR_mask << endl;
     Nfleet1 = N_catchfleets(0);
-    N_retParm=0;
+    N_retParm = 0;
   }
  END_CALCS
 
 //  ProgLabel_2.1.5  define genders and max age
 
-  ivector     age_vector(0,nages)
-  vector      r_ages(0,nages)
-  vector frac_ages(0,nages)
-  ivector     years(styr,endyr) // vector of the years of the model
-  vector    r_years(styr,endyr);
+  ivector age_vector(0,nages);
+  vector  r_ages(0,nages);
+  vector  frac_ages(0,nages);
+  ivector years(styr,endyr); // vector of the years of the model
+  vector  r_years(styr,endyr);
   ivector ALK_subseas_update(1,nseas*N_subseas);  //  0 means ALK is OK for this subseas, 1 means that recalc is needed
 
   ivector F_reporting_ages(1,2);
 
  LOCAL_CALCS
-  for (a=0;a<=nages;a++) age_vector(a) = a; /* SS_loop: fill ivector age vector */
-  for (a=0;a<=nages;a++) r_ages(a) = double(a); /* SS_loop: fill real vector r_ages */
-  frac_ages=r_ages/r_ages(nages);
-  for (y=styr;y<=endyr;y++) {years(y)=y; r_years(y)=y;}    //year vector
-  if (F_reporting==4 || F_reporting==5)
+  for (a = 0; a <= nages; a++) // SS_loop: fill ivector age vector 
+    age_vector(a) = a;
+  for (a = 0; a <= nages; a++) // SS_loop: fill real vector r_ages 
+    r_ages(a) = double(a);
+  frac_ages = r_ages / r_ages(nages);
+  for (y = styr; y <= endyr; y++) //year vector 
   {
-    F_reporting_ages=F_reporting_ages_R;
-    if(F_reporting_ages(1)>(nages-2) || F_reporting_ages(1)<0)
-    {N_warn++;  warning<<N_warn<<" reset lower end of F_reporting_ages to be nages-2  "<<endl; F_reporting_ages(1)=nages-2;}
-    if(F_reporting_ages(2)>(nages-2) || F_reporting_ages(2)<0)
-    {N_warn++;  warning<<N_warn<<" reset upper end of F_reporting_ages to be nages-2  "<<endl; F_reporting_ages(2)=nages-2;}
+    years(y) = y;
+    r_years(y) = y;
+  } 
+  if (F_reporting == 4 || F_reporting == 5)
+  {
+    F_reporting_ages = F_reporting_ages_R;
+    if (F_reporting_ages(1) > (nages - 2) || F_reporting_ages(1) < 0)
+    {
+      N_warn++;
+      warning << N_warn << " reset lower end of F_reporting_ages to be nages-2  " << endl;
+      F_reporting_ages(1) = nages - 2;
+    }
+    if (F_reporting_ages(2) > (nages-2) || F_reporting_ages(2) < 0)
+    {
+      N_warn++;
+      warning << N_warn << " reset upper end of F_reporting_ages to be nages-2  " << endl;
+      F_reporting_ages(2) = nages - 2;
+    }
   }
   else
   {
-    F_reporting_ages(1)=nages/2;
-    F_reporting_ages(2)=F_reporting_ages(1);
+    F_reporting_ages(1) = nages / 2;
+    F_reporting_ages(2) = F_reporting_ages(1);
   }
  END_CALCS
 
 //  SS_Label_Info_2.1.6  #Indexes for data timing.  "have_data" and "data_time" hold pointers for data occurrence, timing, and ALK need
-  int data_type
-  number data_timing
+  int data_type;
+  number data_timing;
   4iarray have_data(1,ALK_time_max,0,Nfleet,0,9,0,100);
-  imatrix have_data_yr(styr,endyr+50,0,Nfleet)
+  imatrix have_data_yr(styr,endyr+50,0,Nfleet);
 
 //  have_data stores the data index of each datum occurring at time ALK_time, for fleet f of observation type k.  Up to 150 data are allowed due to CAAL data
 //  have_data(ALK_idx,0,0,0) is overall indicator that some datum requires ALK update in this ALK_time
 //  have_data() 3rd element:  0=any; 1=survey/CPUE/effort; 2=discard; 3=mnwt; 4=length; 5=age; 6=SizeFreq; 7=sizeage; 8=morphcomp; 9=tags
 //  have_data() 4th element;  zero'th element contains N obs for this subseas; allows for 150 observations per datatype per fleet per subseason
 
-  3darray data_time(1,ALK_time_max,1,Nfleet,1,3)
+  3darray data_time(1,ALK_time_max,1,Nfleet,1,3);
 //  data_time():  first value will hold real month; 2nd is timing within season; 3rd is year.fraction
 //  for a given fleet x subseas, all observations must have the same specific timing (month.fraction)
 //  a warning will be given if subsequent observations have a different month.fraction
@@ -383,44 +450,46 @@
 //  3darray data_ALK_time(1,Nfleet,0,9,1,<nobsperkind/fleet>)   stores ALK_time
 
 //  ProgLabel_2.2  Read CATCH amount by fleet
-  matrix obs_equ_catch(1,nseas,1,Nfleet)    //  initial, equilibrium catch.  now seasonal
+  matrix obs_equ_catch(1,nseas,1,Nfleet);  // initial, equilibrium catch.  now seasonal
  LOCAL_CALCS
    have_data.initialize();
    have_data_yr.initialize();
    obs_equ_catch.initialize();
 
-   for(y=1;y<=ALK_time_max;y++)
-   for(f=1;f<=Nfleet;f++)
+   for (y = 1; y <= ALK_time_max; y++)
+   for (f = 1; f <= Nfleet; f++)
    {
-     data_time(y,f,1)=-1.0;  //  set to illegal value since 0.0 is valid
+     data_time(y, f, 1) = -1.0;  // set to illegal value since 0.0 is valid
    }
  END_CALCS
 !!//  SS_Label_Info_2.2 #Read CATCH amount by fleet
 
   int N_ReadCatch;
 //  int Catch_read;
-  vector tempvec(1,6)  //  vector used for temporary reads
+  vector tempvec(1,6);  //  vector used for temporary reads
  LOCAL_CALCS
 
-  ender=0;
-  do {
+  ender = 0;
+  do 
+  {
     dvector tempvec(1,5);
-      *(ad_comm::global_datafile) >> tempvec(1,5);
-        if(tempvec(1)==-9999.) ender=1;
+    *(ad_comm::global_datafile) >> tempvec(1,5);
+    if (tempvec(1) == -9999.)
+      ender = 1;
     catch_read.push_back (tempvec(1,5));
-  } while (ender==0);
-  N_ReadCatch=catch_read.size()-1;
-   echoinput<<N_ReadCatch<<" records"<<endl;
+  } while (ender == 0);
+  N_ReadCatch = catch_read.size() - 1;
+  echoinput << N_ReadCatch << " records" << endl;
  END_CALCS
 
-  matrix catch_ret_obs(1,Nfleet,styr-nseas,TimeMax+nseas)
-  imatrix do_Fparm(1,Nfleet,styr-nseas,TimeMax+nseas)
-  imatrix catch_record_count(1,Nfleet,styr-nseas,TimeMax+nseas)
-  3iarray catch_seas_area(styr,TimeMax,1,pop,0,Nfleet)
-  matrix totcatch_byarea(styr,TimeMax,1,pop)
-  vector totcat(styr-1,endyr)  //  by year, not by t
-  int first_catch_yr
-  vector catch_by_fleet(1,Nfleet)
+  matrix catch_ret_obs(1,Nfleet,styr-nseas,TimeMax+nseas);
+  imatrix do_Fparm(1,Nfleet,styr-nseas,TimeMax+nseas);
+  imatrix catch_record_count(1,Nfleet,styr-nseas,TimeMax+nseas);
+  3iarray catch_seas_area(styr,TimeMax,1,pop,0,Nfleet);
+  matrix totcatch_byarea(styr,TimeMax,1,pop);
+  vector totcat(styr-1,endyr);  //  by year, not by t
+  int first_catch_yr;
+  vector catch_by_fleet(1,Nfleet);
 
   ivector disc_fleet_list(1,Nfleet);
   int N_retain_fleets;
@@ -429,129 +498,151 @@
  LOCAL_CALCS
   catch_ret_obs.initialize();
   catch_record_count.initialize();
-  catch_warn=0;
+  catch_warn = 0;
   tempvec.initialize();
-  for (k=0;k<=N_ReadCatch-1;k++)
+  for (k = 0; k <= N_ReadCatch - 1; k++)
   {
     //  do read in list format  y, s, f, catch, catch_se
-    tempvec(1,5)=catch_read[k];
-    g=tempvec(1); s=tempvec(2); f=tempvec(3);
-    if(g==-999)
-    {y=styr-1;}  // designates initial equilibrium
-    else
-    {y=g;}
-    if(k==0) echoinput<<"first catch record: "<<tempvec(1,5)<<endl;
-    if(k==(N_ReadCatch-1)) echoinput<<"last catch record: "<<tempvec(1,5)<<endl;
-    if(y>=styr-1 && y<=endyr && (g==-999 || g>=styr))  //  observation is in date range
+    tempvec(1,5) = catch_read[k];
+    g = tempvec(1);
+    s = tempvec(2);
+    f = tempvec(3);
+    if (g == -999)
     {
-      if(s>nseas){
+      y = styr - 1;
+    }  // designates initial equilibrium
+    else
+    {
+      y = g;
+    }
+    if (k == 0)
+      echoinput << "first catch record: " << tempvec(1,5) << endl;
+    if (k == (N_ReadCatch - 1))
+      echoinput << "last catch record: " << tempvec(1,5) << endl;
+    if (y >= styr - 1 && y <= endyr && (g == -999 || g >= styr))  //  observation is in date range
+    {
+      if (s > nseas)
+      {
         catch_warn++;
-        s=nseas;
+        s = nseas;
         // allows for collapsing multiple season catch data down into fewer seasons
         // typically to collapse to annual because accumulation will all be in the index "nseas"
       }
-      if(s>0)
+      if ( s > 0)
       {
-        t=styr+(y-styr)*nseas+s-1;
-
+        t = styr + (y - styr) * nseas + s - 1;
         {
-          catch_ret_obs(f,t) += tempvec(4);
+          catch_ret_obs(f, t) += tempvec(4);
           catch_record_count(f,t)++;
-          catch_se(t,f) = tempvec(5);
+          catch_se(t, f) = tempvec(5);
         }
       }
       else  // distribute catch equally across seasons
       {
-        for (s=1;s<=nseas;s++)
+        for (s = 1; s <= nseas; s++)
         {
-          t=styr+(y-styr)*nseas+s-1;
+          t = styr + (y - styr) * nseas + s - 1;
           {
-            catch_ret_obs(f,t) += tempvec(4)/nseas;
-            catch_record_count(f,t)++;
+            catch_ret_obs(f, t) += tempvec(4) / nseas;
+            catch_record_count(f, t)++;
           }
         }
       }
     }
   }
-  if(catch_warn>0){
-    N_warn++; warning<<N_warn<<" at least one catch record has seas>nseas; perhaps erroneous entry of month rather than season; SS3 changed them to nseas"<<endl;
+  if(catch_warn > 0)
+  {
+    N_warn++; 
+    warning << N_warn << " at least one catch record has seas>nseas; perhaps erroneous entry of month rather than season; SS3 changed them to nseas" << endl;
   }
 //  warn on duplicate catch records
-    for(y=styr-1;y<=endyr;y++)
-    for(s=1;s<=nseas;s++)
-    for(f=1;f<=Nfleet;f++) {
-      t=styr+(y-styr)*nseas+s-1;
-      if(catch_record_count(f,t)>1)
-      	{N_warn++;  warning<<N_warn<<" "<<catch_record_count(f,t)<<" catch records have been accumulated into yr, seas, fleet "<<y<<" "<<s<<" "<<f<<"; total catch= "<<catch_ret_obs(f,t)<<endl;}
+    for (y = styr - 1; y <= endyr; y++)
+    for (s = 1; s <= nseas; s++)
+    for (f = 1; f <= Nfleet; f++)
+    {
+      t = styr + (y - styr) * nseas + s - 1;
+      if (catch_record_count(f, t) > 1)
+      {
+      N_warn++;
+      warning << N_warn << " " << catch_record_count(f, t) << " catch records have been accumulated into yr, seas, fleet " << y << " " << s << " " << f << "; total catch= " << catch_ret_obs(f, t) << endl;
+      }
     }
 
     obs_equ_catch.initialize();
-    for(s=1;s<=nseas;s++)
+    for (s = 1; s <= nseas; s++)
     {
-      for (f=1;f<=Nfleet;f++)
-      if(fleet_type(f)<=2)
-        {obs_equ_catch(s,f)=catch_ret_obs(f,styr-nseas-1+s);}
-      echoinput<<" equ, seas:   -1 "<<s<<" catches: "<<obs_equ_catch(s)<<endl;
+      for (f = 1; f <= Nfleet; f++)
+        if(fleet_type(f) <= 2)
+        {
+          obs_equ_catch(s, f) = catch_ret_obs(f, styr - nseas - 1 + s);
+        }
+      echoinput << " equ, seas:   -1 " << s << " catches: " << obs_equ_catch(s) << endl;
     }
-    for(y=styr;y<=endyr;y++)
-    for(s=1;s<=nseas;s++)
+    for (y = styr; y <= endyr; y++)
+    for (s = 1; s <= nseas; s++)
     {
-      t=styr+(y-styr)*nseas+s-1;
-      echoinput<<"year, seas: "<<y<<" "<<s<<" catches: "<<trans(catch_ret_obs)(t)<<endl;
+      t = styr + (y - styr) * nseas + s - 1;
+      echoinput << "year, seas: " << y << " " << s << " catches: " << trans(catch_ret_obs)(t) << endl;
     }
 
 //  calc total catch by year so can calculate the first year with catch and to omit zero catch years from sdreport
   totcat.initialize();
   catch_seas_area.initialize();
   totcatch_byarea.initialize();
-  totcat(styr-1)=sum(obs_equ_catch);  //  sums over all seasons and fleets
-  first_catch_yr=0;
-  if(totcat(styr-1)>0.0) first_catch_yr=styr-1;
+  totcat(styr - 1) = sum(obs_equ_catch);  //  sums over all seasons and fleets
+  first_catch_yr = 0;
+  if (totcat(styr - 1) > 0.0)
+    first_catch_yr = styr - 1;
 
-  for (y=styr; y<=endyr; y++)
+  for (y = styr; y <= endyr; y++)
   {
-    for (s=1;s<=nseas;s++)
+    for (s = 1; s <= nseas; s++)
     {
-      t=styr+(y-styr)*nseas+s-1;
-      for (p=1;p<=pop;p++)
-      for (f=1;f<=Nfleet;f++)
-      if(fleet_area(f)==p && catch_ret_obs(f,t) > 0.0 && fleet_type(f)<=2)  //  excludes survey and predator fleets
+      t = styr + (y - styr) * nseas + s - 1;
+      for (p = 1; p <= pop; p++)
+      for (f = 1; f <= Nfleet; f++)
+      if (fleet_area(f) == p && catch_ret_obs(f,t) > 0.0 && fleet_type(f) <= 2)  //  excludes survey and predator fleets
       {
-        catch_seas_area(t,p,f)=1;
-        catch_seas_area(t,p,0)=1;
-        if(fleet_type(f)==1) totcat(y) += catch_ret_obs(f,t);
-        if(fleet_type(f)==1) totcatch_byarea(t,p)+=catch_ret_obs(f,t);
+        catch_seas_area(t, p, f) = 1;
+        catch_seas_area(t, p, 0) = 1;
+        if (fleet_type(f) == 1)
+          totcat(y) += catch_ret_obs(f,t);
+        if (fleet_type(f) == 1)
+          totcatch_byarea(t, p) += catch_ret_obs(f, t);
       }
     }
-    if(totcat(y)>0.0 && first_catch_yr==0) first_catch_yr=y;
-    if(y==endyr && totcat(y)==0.0)
+    if (totcat(y) > 0.0 && first_catch_yr == 0)
+      first_catch_yr = y;
+    if (y == endyr && totcat(y) == 0.0)
     {
-      N_warn++;  warning<<N_warn<<" catch is 0.0 in endyr; this can cause problem in the benchmark and forecast calculations"<<endl;
+      N_warn++;
+      warning << N_warn << " catch is 0.0 in endyr; this can cause problem in the benchmark and forecast calculations" << endl;
     }
   }
-    echoinput<<endl<<"#_show_total_catch_by_fleet"<<endl;
-    catch_by_fleet=rowsum(catch_ret_obs);
-    for(f=1;f<=Nfleet;f++)
+  echoinput << endl << "#_show_total_catch_by_fleet" << endl;
+  catch_by_fleet = rowsum(catch_ret_obs);
+  for (f = 1; f <= Nfleet; f++)
+  {
+    echoinput << f << " type: " << fleet_type(f) << " " << fleetname(f) << " catch: " << catch_by_fleet(f);
+    if (fleet_type(f) == 3 && catch_by_fleet(f) > 0.0)
     {
-      echoinput<<f<<" type: "<<fleet_type(f)<<" "<<fleetname(f)<<" catch: "<<catch_by_fleet(f);
-      if(fleet_type(f)==3 && catch_by_fleet(f)>0.0)
-        {
-          echoinput<<"  Catch by survey fleet will be ignored ";
-          N_warn++;  warning<<N_warn<<"  Catch by survey fleet will be ignored "<<fleet_type(f)<<endl;
-        }
-      echoinput<<endl;
+      echoinput << "  Catch by survey fleet will be ignored ";
+      N_warn++;
+      warning << N_warn << "  Catch by survey fleet will be ignored " << fleet_type(f) << endl;
     }
+    echoinput << endl;
+  }
  END_CALCS
 
   //  SS_Label_Info_2.3 #Read fishery CPUE, effort, and Survey index or abundance
-  !!echoinput<<endl<<"#_  now read survey characteristics:  fleet_#, svyunits, svyerrtype for each fleet "<<endl;
-  int Svy_N_rd
-  int Svy_N
-  init_imatrix Svy_units_rd(1,Nfleet,1,4)
-  ivector Svy_units(1,Nfleet)   //0=num; 1=bio; 2=F; >=30 for special patterns
-  ivector Svy_errtype(1,Nfleet)  // -1=normal / 0=lognormal / >0=T
-  ivector Svy_sdreport(1,Nfleet)  // 0=no sdreport; 1=enable sdreport
-  int Svy_N_sdreport
+  !!echoinput << endl << "#_  now read survey characteristics:  fleet_#, svyunits, svyerrtype for each fleet " << endl;
+  int Svy_N_rd;
+  int Svy_N;
+  init_imatrix Svy_units_rd(1,Nfleet,1,4);
+  ivector Svy_units(1,Nfleet);   //0=num; 1=bio; 2=F; >=30 for special patterns
+  ivector Svy_errtype(1,Nfleet);  // -1=normal / 0=lognormal / >0=T
+  ivector Svy_sdreport(1,Nfleet);  // 0=no sdreport; 1=enable sdreport
+  int Svy_N_sdreport;
 
  LOCAL_CALCS
   data_type=1;  //  for surveys
@@ -578,10 +669,10 @@
 
 //   init_matrix Svy_data(1,Svy_N_rd,1,5)
 //  !!if(Svy_N_rd>0) echoinput<<" Svy_data "<<endl<<Svy_data<<endl;
-  ivector Svy_N_fleet(1,Nfleet)  // total N
-  ivector Svy_N_fleet_use(1,Nfleet)  // N in likelihood
-  int in_superperiod
-  ivector Svy_super_N(1,Nfleet)      // N super_yrs per fleet
+  ivector Svy_N_fleet(1,Nfleet);  // total N
+  ivector Svy_N_fleet_use(1,Nfleet);  // N in likelihood
+  int in_superperiod;
+  ivector Svy_super_N(1,Nfleet);      // N super_yrs per fleet
 
  LOCAL_CALCS
   //  count the number of observations, exclude those outside the specified year range, count the number of superperiods
@@ -627,28 +718,28 @@
 
  END_CALCS
 
-  imatrix Svy_time_t(1,Nfleet,1,Svy_N_fleet)  //  stores the continuous season index (t) for each obs
-  imatrix Svy_ALK_time(1,Nfleet,1,Svy_N_fleet)  // stores the continuous subseas index (ALK_time) for each obs
-  imatrix Svy_use(1,Nfleet,1,Svy_N_fleet)
-  matrix  Svy_obs(1,Nfleet,1,Svy_N_fleet)
-  matrix  Svy_obs_log(1,Nfleet,1,Svy_N_fleet)
-  matrix  Svy_se_rd(1,Nfleet,1,Svy_N_fleet)
-  matrix  Svy_se(1,Nfleet,1,Svy_N_fleet)
+  imatrix Svy_time_t(1,Nfleet,1,Svy_N_fleet);  //  stores the continuous season index (t) for each obs
+  imatrix Svy_ALK_time(1,Nfleet,1,Svy_N_fleet);  // stores the continuous subseas index (ALK_time) for each obs
+  imatrix Svy_use(1,Nfleet,1,Svy_N_fleet);
+  matrix  Svy_obs(1,Nfleet,1,Svy_N_fleet);
+  matrix  Svy_obs_log(1,Nfleet,1,Svy_N_fleet);
+  matrix  Svy_se_rd(1,Nfleet,1,Svy_N_fleet);
+  matrix  Svy_se(1,Nfleet,1,Svy_N_fleet);
   matrix  Svy_selec_abund(1,Nfleet,1,Svy_N_fleet);        // Vulnerable biomass
 // arrays for Super-years
-  imatrix Svy_super(1,Nfleet,1,Svy_N_fleet)  //  indicator used to display start/stop in reports
-  imatrix Svy_super_start(1,Nfleet,1,Svy_super_N)  //  where Svy_super_N is a vector
-  imatrix Svy_super_end(1,Nfleet,1,Svy_super_N)
-  matrix Svy_super_weight(1,Nfleet,1,Svy_N_fleet)
-  ivector Svy_styr(1,Nfleet)
-  ivector Svy_endyr(1,Nfleet)
-  imatrix Svy_yr(1,Nfleet,1,Svy_N_fleet)
-  number  real_month
-  vector timing_input(1,3)
-  vector timing_r_result(1,3)
-  vector Svy_minval(1,Nfleet)
-  vector Svy_maxval(1,Nfleet)
-  ivector timing_i_result(1,6)
+  imatrix Svy_super(1,Nfleet,1,Svy_N_fleet);  //  indicator used to display start/stop in reports
+  imatrix Svy_super_start(1,Nfleet,1,Svy_super_N);  //  where Svy_super_N is a vector
+  imatrix Svy_super_end(1,Nfleet,1,Svy_super_N);
+  matrix Svy_super_weight(1,Nfleet,1,Svy_N_fleet);
+  ivector Svy_styr(1,Nfleet);
+  ivector Svy_endyr(1,Nfleet);
+  imatrix Svy_yr(1,Nfleet,1,Svy_N_fleet);
+  number  real_month;
+  vector timing_input(1,3);
+  vector timing_r_result(1,3);
+  vector Svy_minval(1,Nfleet);
+  vector Svy_maxval(1,Nfleet);
+  ivector timing_i_result(1,6);
     // r_result(1,3) will contain: real_month, data_timing_seas, data_timing_yr,
     // i_result(1,6) will contain y, t, s, f, ALK_time, use_midseas
 
@@ -761,12 +852,12 @@
 
  END_CALCS
 
-   init_int Ndisc_fleets
-   int nobs_disc  //  number of discard records kept in active array
-   int disc_N_read  //  number of records read
-   ivector disc_N_fleet(1,Nfleet)  //  kept obs per fleet
-   ivector disc_N_fleet_use(1,Nfleet)  //  kept obs per fleet
-   ivector N_suprper_disc(1,Nfleet)      // N super_yrs per obs
+   init_int Ndisc_fleets;
+   int nobs_disc;  //  number of discard records kept in active array
+   int disc_N_read;  //  number of records read
+   ivector disc_N_fleet(1,Nfleet);  //  kept obs per fleet
+   ivector disc_N_fleet_use(1,Nfleet);  //  kept obs per fleet
+   ivector N_suprper_disc(1,Nfleet);      // N super_yrs per obs
 
  LOCAL_CALCS
   //  SS_Label_Info_2.4 #read Discard data
@@ -776,12 +867,12 @@
   if(Ndisc_fleets>0) {j=Nfleet;} else {j=0;}
   data_type=2;  //  for discard
  END_CALCS
-  init_imatrix disc_units_rd(1,Ndisc_fleets,1,3)
-  ivector disc_units(1,j)  //  formerly scalar disc_type
-  ivector disc_errtype(1,j)  // formerly scalar DF_disc
-  vector disc_errtype_r(1,j)  // real version for T-dist
-  vector disc_minval(1,j)
-  vector disc_maxval(1,j)
+  init_imatrix disc_units_rd(1,Ndisc_fleets,1,3);
+  ivector disc_units(1,j);  //  formerly scalar disc_type
+  ivector disc_errtype(1,j);  // formerly scalar DF_disc
+  vector disc_errtype_r(1,j);  // real version for T-dist
+  vector disc_minval(1,j);
+  vector disc_maxval(1,j);
 
  LOCAL_CALCS
   disc_units.initialize();
@@ -850,17 +941,17 @@
   }
  END_CALCS
 
-  imatrix disc_time_t(1,Nfleet,1,disc_N_fleet)
-  imatrix disc_time_ALK(1,Nfleet,1,disc_N_fleet)  // stores the continuous subseas index (ALK_time) for each obs
-  imatrix yr_disc_use(1,Nfleet,1,disc_N_fleet)
-  matrix  obs_disc(1,Nfleet,1,disc_N_fleet)
-  matrix  cv_disc(1,Nfleet,1,disc_N_fleet)
-  matrix  sd_disc(1,Nfleet,1,disc_N_fleet)
+  imatrix disc_time_t(1,Nfleet,1,disc_N_fleet);
+  imatrix disc_time_ALK(1,Nfleet,1,disc_N_fleet);  // stores the continuous subseas index (ALK_time) for each obs
+  imatrix yr_disc_use(1,Nfleet,1,disc_N_fleet);
+  matrix  obs_disc(1,Nfleet,1,disc_N_fleet);
+  matrix  cv_disc(1,Nfleet,1,disc_N_fleet);
+  matrix  sd_disc(1,Nfleet,1,disc_N_fleet);
 // arrays for Super-years
-  imatrix yr_disc_super(1,Nfleet,1,disc_N_fleet)
-  imatrix suprper_disc1(1,Nfleet,1,N_suprper_disc)
-  imatrix suprper_disc2(1,Nfleet,1,N_suprper_disc)
-  matrix suprper_disc_sampwt(1,Nfleet,1,disc_N_fleet)
+  imatrix yr_disc_super(1,Nfleet,1,disc_N_fleet);
+  imatrix suprper_disc1(1,Nfleet,1,N_suprper_disc);
+  imatrix suprper_disc2(1,Nfleet,1,N_suprper_disc);
+  matrix suprper_disc_sampwt(1,Nfleet,1,disc_N_fleet);
  LOCAL_CALCS
   //  SS_Label_Info_2.4.1 #Process discard data and create super periods as needed
     disc_N_fleet.initialize();                        // redo the counter to provide pointer for below
@@ -942,12 +1033,12 @@
 
 !!//  SS_Label_Info_2.5 #Read Mean Body Weight data
 //  note that syntax for storing this info internally is done differently than for surveys and discard
-  init_int do_meanbodywt
-  int nobs_mnwt_rd
-  int nobs_mnwt
-  ivector mnwt_N_fleet(1,Nfleet)
-  ivector mnwt_N_fleet_use(1,Nfleet)
-  number DF_bodywt  // DF For meanbodywt T-distribution
+  init_int do_meanbodywt;
+  int nobs_mnwt_rd;
+  int nobs_mnwt;
+  ivector mnwt_N_fleet(1,Nfleet);
+  ivector mnwt_N_fleet_use(1,Nfleet);
+  number DF_bodywt;  // DF For meanbodywt T-distribution
   !!echoinput<<do_meanbodywt<<" Use mean body size (weight or length); If 0, then no additional input in 3.30 "<<endl;
 
  LOCAL_CALCS
@@ -978,7 +1069,7 @@
     if(nobs_mnwt_rd>0) echoinput<<"meansize_obs_#:"<<nobs_mnwt_rd<<" # "<<mnwtdata1[nobs_mnwt_rd-1]<<endl;
   }
  END_CALCS
-  matrix mnwtdata(1,11,1,nobs_mnwt)  //  working matrix for the mean size data
+  matrix mnwtdata(1,11,1,nobs_mnwt);  //  working matrix for the mean size data
 //  10 items are:  1yr, 2seas, 3fleet, 4part, 5type, 6obs, 7se, then three intermediate variance quantities, then ALKtime
 
  LOCAL_CALCS
@@ -1029,20 +1120,20 @@
  END_CALCS
 
 !!//  SS_Label_Info_2.6 #Setup population Length bins
-  number binwidth2  //  width of length bins in population
-  number minLread  // input minimum size in population; this is used as the mean size at age 0.00
-  number maxLread  //  input maximum size to be considered; should be divisible by binwidth2
-  int nlen_bin2  //number of length bins in length comp data doubled for males
-  int nlen_binP   //number of length bins in length comp data +1 as needed
-  number minL               // minL and maxL store ends of the sizevector and are used as bounds later
-  number minL_m  // mean size in first pop bin
-  number maxL  // set to the midsize of last population bin for selex calc
-  int nlength  // N pop lenbins
-  int nlength1  //  +1 as needed
-  int nlength2  // doubled for males
-  number startbin  // population length bin that matches first data length bin
+  number binwidth2;  //  width of length bins in population
+  number minLread;  // input minimum size in population; this is used as the mean size at age 0.00
+  number maxLread;  //  input maximum size to be considered; should be divisible by binwidth2
+  int nlen_bin2;  //number of length bins in length comp data doubled for males
+  int nlen_binP;   //number of length bins in length comp data +1 as needed
+  number minL;               // minL and maxL store ends of the sizevector and are used as bounds later
+  number minL_m;  // mean size in first pop bin
+  number maxL;  // set to the midsize of last population bin for selex calc
+  int nlength;  // N pop lenbins
+  int nlength1;  //  +1 as needed
+  int nlength2;  // doubled for males
+  number startbin;  // population length bin that matches first data length bin
 
-  init_int LenBin_option  // 1=set to data bins; 2 generate uniform; 3 = read custom
+  init_int LenBin_option;  // 1=set to data bins; 2 generate uniform; 3 = read custom
   !!echoinput<<LenBin_option<<" LenBin_option:  1=set to data bins; 2 generate uniform; 3 = read custom"<<endl;
  LOCAL_CALCS
    if(LenBin_option==1)
@@ -1064,25 +1155,25 @@
    else if(LenBin_option==3)
    {nlength=PopBin_Read(1);}  // number of bins to read
  END_CALCS
-  init_vector len_bins_rd(1,nlength)
+  init_vector len_bins_rd(1,nlength);
   !!if(nlength>0) echoinput<<len_bins_rd<<" population length bins as read "<<endl;
 
 !!//  SS_Label_Info_2.7 #Start length data section
-  init_int use_length_data  //  0/1 to indicate whether there is any reading of length data
+  init_int use_length_data;  //  0/1 to indicate whether there is any reading of length data
   !!echoinput<<use_length_data<<" indicator for length data  "<<endl;
 
-  number min_tail  //min_proportion_for_compressing_tails_of_observed_composition
-  number min_comp  //  small value added to each composition bins
-  int CombGender_l  //  combine genders through this length bin
+  number min_tail;  //min_proportion_for_compressing_tails_of_observed_composition
+  number min_comp;  //  small value added to each composition bins
+  int CombGender_l;  //  combine genders through this length bin
 !!//  SS_Label_Info_2.7.1 #Read and process data length bins
-  int nlen_bin //number of length bins in length comp data
-  vector min_tail_L(1,Nfleet)  //min_proportion_for_compressing_tails_of_observed_composition
-  vector min_comp_L(1,Nfleet)  //  small value added to each composition bins
-  ivector CombGender_L(1,Nfleet)  //  combine genders through this length bin (0 or -1 for no combine)
-  ivector AccumBin_L(1,Nfleet)  //  collapse bins down to this bin number (0 for no collapse; positive value for number to accumulate)
-  ivector Comp_Err_L(1,Nfleet)  //  composition error type
-  ivector Comp_Err_L2(1,Nfleet)  //  composition error type parameter location
-  vector min_sample_size_L(1,Nfleet)  // minimum sample size
+  int nlen_bin; //number of length bins in length comp data
+  vector min_tail_L(1,Nfleet);  //min_proportion_for_compressing_tails_of_observed_composition
+  vector min_comp_L(1,Nfleet);  //  small value added to each composition bins
+  ivector CombGender_L(1,Nfleet);  //  combine genders through this length bin (0 or -1 for no combine)
+  ivector AccumBin_L(1,Nfleet);  //  collapse bins down to this bin number (0 for no collapse; positive value for number to accumulate)
+  ivector Comp_Err_L(1,Nfleet);  //  composition error type
+  ivector Comp_Err_L2(1,Nfleet);  //  composition error type parameter location
+  vector min_sample_size_L(1,Nfleet);  // minimum sample size
   int Comp_Err_ParmCount;  // counts number of fleets that need a parameter for the error estimation
   ivector DM_parmlist(1,2*Nfleet);
  LOCAL_CALCS
@@ -1153,7 +1244,7 @@
     nlen_bin2=2*gender;
   }
  END_CALCS
-  vector len_bins_dat(1,nlen_bin) // length bin lower boundaries
+  vector len_bins_dat(1,nlen_bin); // length bin lower boundaries
  LOCAL_CALCS
   if(use_length_data>0)
   {
@@ -1175,9 +1266,9 @@
     }
  END_CALCS
 
-  vector len_bins_dat2(1,nlen_bin2)  //; doubled for males; for output only
-  vector len_bins_dat_m(1,nlen_bin)  //; midbin; for output only
-  vector len_bins_dat_m2(1,nlen_bin2)  //; doubled for males; for output only
+  vector len_bins_dat2(1,nlen_bin2);  //; doubled for males; for output only
+  vector len_bins_dat_m(1,nlen_bin);  //; midbin; for output only
+  vector len_bins_dat_m2(1,nlen_bin2);  //; doubled for males; for output only
 
  LOCAL_CALCS
   //  SS_Label_Info_2.7.2 #Process population length bins, create mean length per bin, etc.
@@ -1198,14 +1289,14 @@
    nlength2 = gender*nlength;    // doubled for males
  END_CALCS
 
-  vector len_bins(1,nlength)  //vector with lower edge of population length bins
-  vector log_len_bins(1,nlength)  //vector with log of lower edge of population length bins
-  vector len_bins2(1,nlength2)  //vector with lower edge of population length bins
-  vector binwidth(1,nlength2)  //ve
-  vector len_bins_m(1,nlength)  //vector with mean size in bin
-  vector len_bins_m2(1,nlength2)  //vector with all length bins; doubled for males
-  vector len_bins_sq(1,nlength2)  //vector with all length bins; doubled for males
-  vector male_offset(1,nlength2)  // used to calculate retained@length as population quantity
+  vector len_bins(1,nlength);  //vector with lower edge of population length bins
+  vector log_len_bins(1,nlength);  //vector with log of lower edge of population length bins
+  vector len_bins2(1,nlength2);  //vector with lower edge of population length bins
+  vector binwidth(1,nlength2);  //ve
+  vector len_bins_m(1,nlength);  //vector with mean size in bin
+  vector len_bins_m2(1,nlength2);  //vector with all length bins; doubled for males
+  vector len_bins_sq(1,nlength2);  //vector with all length bins; doubled for males
+  vector male_offset(1,nlength2);  // used to calculate retained@length as population quantity
 
  LOCAL_CALCS
   male_offset.initialize();  //  initialize
@@ -1343,11 +1434,11 @@
 
 
 !!//  SS_Label_Info_2.7.4 #Read Length composition data
-   int nobsl_rd
-   int Nobs_l_tot
-  ivector Nobs_l(1,Nfleet)
-  ivector Nobs_l_use(1,Nfleet)
-  ivector N_suprper_l(1,Nfleet)      // N super_yrs per obs
+   int nobsl_rd;
+   int Nobs_l_tot;
+  ivector Nobs_l(1,Nfleet);
+  ivector Nobs_l_use(1,Nfleet);
+  ivector N_suprper_l(1,Nfleet);      // N super_yrs per obs
 
 //   vector tempvec_lenread(1,6+nlen_bin2);
 
@@ -1409,26 +1500,26 @@
     }
  END_CALCS
 
-  imatrix Len_time_t(1,Nfleet,1,Nobs_l)
-  imatrix Len_time_ALK(1,Nfleet,1,Nobs_l)
-  3darray obs_l(1,Nfleet,1,Nobs_l,1,nlen_bin2)
-  4darray obs_l_all(1,4,0,nseas,1,Nfleet,1,nlen_bin)  //  for the sum of all length comp data
-  matrix offset_l(1,Nfleet,1,Nobs_l) // Compute OFFSET for multinomial (i.e, value for the multinonial function
-  matrix  nsamp_l(1,Nfleet,1,Nobs_l)
-  matrix  nsamp_l_read(1,Nfleet,1,Nobs_l)
-  imatrix  gen_l(1,Nfleet,1,Nobs_l)
-  imatrix  mkt_l(1,Nfleet,1,Nobs_l)
-  3darray header_l_rd(1,Nfleet,1,Nobs_l,0,3)
-  3darray header_l(1,Nfleet,1,Nobs_l,0,3)
-  3darray tails_l(1,Nfleet,1,Nobs_l,1,4)   // min-max bin for females; min-max bin for males
-  ivector tails_w(1,4)
+  imatrix Len_time_t(1,Nfleet,1,Nobs_l);
+  imatrix Len_time_ALK(1,Nfleet,1,Nobs_l);
+  3darray obs_l(1,Nfleet,1,Nobs_l,1,nlen_bin2);
+  4darray obs_l_all(1,4,0,nseas,1,Nfleet,1,nlen_bin);  //  for the sum of all length comp data
+  matrix offset_l(1,Nfleet,1,Nobs_l); // Compute OFFSET for multinomial (i.e, value for the multinonial function
+  matrix  nsamp_l(1,Nfleet,1,Nobs_l);
+  matrix  nsamp_l_read(1,Nfleet,1,Nobs_l);
+  imatrix  gen_l(1,Nfleet,1,Nobs_l);
+  imatrix  mkt_l(1,Nfleet,1,Nobs_l);
+  3darray header_l_rd(1,Nfleet,1,Nobs_l,0,3);
+  3darray header_l(1,Nfleet,1,Nobs_l,0,3);
+  3darray tails_l(1,Nfleet,1,Nobs_l,1,4);   // min-max bin for females; min-max bin for males
+  ivector tails_w(1,4);
 
 // arrays for Super-years
-  imatrix suprper_l1(1,Nfleet,1,N_suprper_l)
-  imatrix suprper_l2(1,Nfleet,1,N_suprper_l)
-  matrix  suprper_l_sampwt(1,Nfleet,1,Nobs_l)  //  will contain calculated weights for obs within super periods
-  int floop
-  int tloop
+  imatrix suprper_l1(1,Nfleet,1,N_suprper_l);
+  imatrix suprper_l2(1,Nfleet,1,N_suprper_l);
+  matrix  suprper_l_sampwt(1,Nfleet,1,Nobs_l);  //  will contain calculated weights for obs within super periods
+  int floop;
+  int tloop;
 
  LOCAL_CALCS
   //  SS_Label_Info_2.7.5 #Process length comps, compress tails, add constant, scale to 1.0
@@ -1670,7 +1761,7 @@
 
 !!//  SS_Label_Info_2.8 #Start age composition data section
 !!//  SS_Label_Info_2.8.1 #Read Age bin and ageing error vectors
-  int n_abins // age classes for data
+  int n_abins; // age classes for data
   int n_abins1;
   int n_abins2;
   int Use_AgeKeyZero;  //  set to ageerr_type for the age data that use parameter approach
@@ -1680,21 +1771,21 @@
   int AgeKey_StartAge;
   int AgeKey_Linear1;
   int AgeKey_Linear2;
-  int N_ageerr   // number of ageing error matrices to be calculated
-  vector min_tail_A(1,Nfleet)  //min_proportion_for_compressing_tails_of_observed_composition
-  vector min_comp_A(1,Nfleet)  //  small value added to each composition bins
-  ivector CombGender_A(1,Nfleet)  //  combine genders through this age bin (0 or -1 for no combine)
-  ivector AccumBin_A(1,Nfleet)  //  collapse bins down to this bin number (0 for no collapse; positive value for N to accumulate)
-  ivector Comp_Err_A(1,Nfleet)  //  composition error type
-  ivector Comp_Err_A2(1,Nfleet)  //  composition error parameter location
-  vector min_sample_size_A(1,Nfleet)  // minimum sample size
-  int Nobs_a_tot
-  int nobsa_rd
-  int Lbin_method  //#_Lbin_method: 1=poplenbins; 2=datalenbins; 3=lengths
-  int CombGender_a  //  combine genders through this age bin
-  ivector Nobs_a(1,Nfleet)
-  ivector Nobs_a_use(1,Nfleet)
-  ivector N_suprper_a(1,Nfleet)      // N super_yrs per obs
+  int N_ageerr;   // number of ageing error matrices to be calculated
+  vector min_tail_A(1,Nfleet);  //min_proportion_for_compressing_tails_of_observed_composition
+  vector min_comp_A(1,Nfleet);  //  small value added to each composition bins
+  ivector CombGender_A(1,Nfleet);  //  combine genders through this age bin (0 or -1 for no combine)
+  ivector AccumBin_A(1,Nfleet);  //  collapse bins down to this bin number (0 for no collapse; positive value for N to accumulate)
+  ivector Comp_Err_A(1,Nfleet);  //  composition error type
+  ivector Comp_Err_A2(1,Nfleet);  //  composition error parameter location
+  vector min_sample_size_A(1,Nfleet);  // minimum sample size
+  int Nobs_a_tot;
+  int nobsa_rd;
+  int Lbin_method;  //#_Lbin_method: 1=poplenbins; 2=datalenbins; 3=lengths
+  int CombGender_a;  //  combine genders through this age bin
+  ivector Nobs_a(1,Nfleet);
+  ivector Nobs_a_use(1,Nfleet);
+  ivector N_suprper_a(1,Nfleet);      // N super_yrs per obs
 
  LOCAL_CALCS
     Use_AgeKeyZero=0;
@@ -1715,10 +1806,10 @@
   n_abins2=gender*n_abins;
  END_CALCS
 
-  vector age_bins1(1,n_abins) // age classes for data
-  vector age_bins(1,n_abins2) // age classes for data  female then male end-to-end
-  vector age_bins_mean(1,n_abins2)  //  holds mean age for each data age bin
-  3darray age_err_rd(1,1,1,1,0,0)
+  vector age_bins1(1,n_abins); // age classes for data
+  vector age_bins(1,n_abins2); // age classes for data  female then male end-to-end
+  vector age_bins_mean(1,n_abins2);  //  holds mean age for each data age bin
+  3darray age_err_rd(1,1,1,1,0,0);
 
  LOCAL_CALCS
   age_bins1.initialize();
@@ -1894,28 +1985,28 @@
 
  END_CALCS
 
-  matrix offset_a(1,Nfleet,1,Nobs_a) // Compute OFFSET for multinomial (i.e, value for the multinonial function
-  imatrix Age_time_t(1,Nfleet,1,Nobs_a)
-  imatrix Age_time_ALK(1,Nfleet,1,Nobs_a)
-  3darray obs_a(1,Nfleet,1,Nobs_a,1,gender*n_abins)
-  4darray obs_a_all(1,4,0,nseas,1,Nfleet,1,n_abins)  //  for the sum of all age comp data
-  matrix  nsamp_a(1,Nfleet,1,Nobs_a)
-  matrix  nsamp_a_read(1,Nfleet,1,Nobs_a)
-  imatrix  ageerr_type_a(1,Nfleet,1,Nobs_a)
-  imatrix  gen_a(1,Nfleet,1,Nobs_a)
-  imatrix  mkt_a(1,Nfleet,1,Nobs_a)
-  3darray  Lbin_filter(1,Nfleet,1,Nobs_a,1,nlength2)
-  imatrix  use_Lbin_filter(1,Nfleet,1,Nobs_a)
-  imatrix  Lbin_lo(1,Nfleet,1,Nobs_a)
-  imatrix  Lbin_hi(1,Nfleet,1,Nobs_a)
-  3darray tails_a(1,Nfleet,1,Nobs_a,1,4)   // min-max bin for females; min-max bin for males
-  3darray header_a(1,Nfleet,1,Nobs_a,1,9)
-  3darray header_a_rd(1,Nfleet,1,Nobs_a,2,3)
+  matrix offset_a(1,Nfleet,1,Nobs_a); // Compute OFFSET for multinomial (i.e, value for the multinonial function
+  imatrix Age_time_t(1,Nfleet,1,Nobs_a);
+  imatrix Age_time_ALK(1,Nfleet,1,Nobs_a);
+  3darray obs_a(1,Nfleet,1,Nobs_a,1,gender*n_abins);
+  4darray obs_a_all(1,4,0,nseas,1,Nfleet,1,n_abins);  //  for the sum of all age comp data
+  matrix  nsamp_a(1,Nfleet,1,Nobs_a);
+  matrix  nsamp_a_read(1,Nfleet,1,Nobs_a);
+  imatrix  ageerr_type_a(1,Nfleet,1,Nobs_a);
+  imatrix  gen_a(1,Nfleet,1,Nobs_a);
+  imatrix  mkt_a(1,Nfleet,1,Nobs_a);
+  3darray  Lbin_filter(1,Nfleet,1,Nobs_a,1,nlength2);
+  imatrix  use_Lbin_filter(1,Nfleet,1,Nobs_a);
+  imatrix  Lbin_lo(1,Nfleet,1,Nobs_a);
+  imatrix  Lbin_hi(1,Nfleet,1,Nobs_a);
+  3darray tails_a(1,Nfleet,1,Nobs_a,1,4);   // min-max bin for females; min-max bin for males
+  3darray header_a(1,Nfleet,1,Nobs_a,1,9);
+  3darray header_a_rd(1,Nfleet,1,Nobs_a,2,3);
 
 // arrays for Super-years
-  matrix  suprper_a_sampwt(1,Nfleet,1,Nobs_a)  //  will contain calculated weights for obs within super periods
-  imatrix suprper_a1(1,Nfleet,1,N_suprper_a)
-  imatrix suprper_a2(1,Nfleet,1,N_suprper_a)
+  matrix  suprper_a_sampwt(1,Nfleet,1,Nobs_a);  //  will contain calculated weights for obs within super periods
+  imatrix suprper_a1(1,Nfleet,1,N_suprper_a);
+  imatrix suprper_a2(1,Nfleet,1,N_suprper_a);
 
   //  SS_Label_Info_2.8.3 #Pre-process age comps, compress tails, define length bin filters
  LOCAL_CALCS
@@ -2218,14 +2309,14 @@
  END_CALCS
 
 !!//  SS_Label_Info_2.9 #Read mean Size_at_Age data
-  init_int use_meansizedata
-  int nobs_ms_tot
-  int nobs_ms_rd
+  init_int use_meansizedata;
+  int nobs_ms_tot;
+  int nobs_ms_rd;
   !!echoinput<<use_meansizedata<<" (0/1) use mean size-at-age data "<<endl;
 //  init_matrix sizeAge_Data(1,nobs_ms_rd,1,7+2*n_abins2)
-  ivector Nobs_ms(1,Nfleet)
-  ivector Nobs_ms_use(1,Nfleet)
-  ivector N_suprper_ms(1,Nfleet)      // N super_yrs per obs
+  ivector Nobs_ms(1,Nfleet);
+  ivector Nobs_ms_use(1,Nfleet);
+  ivector N_suprper_ms(1,Nfleet);      // N super_yrs per obs
 
  LOCAL_CALCS
    Nobs_ms.initialize();
@@ -2286,19 +2377,19 @@
   }
  END_CALCS
 
-  imatrix msz_time_t(1,Nfleet,1,Nobs_ms)
-  imatrix msz_time_ALK(1,Nfleet,1,Nobs_ms)
-  3darray obs_ms(1,Nfleet,1,Nobs_ms,1,n_abins2)
-  3darray obs_ms_n(1,Nfleet,1,Nobs_ms,1,n_abins2)
-  3darray obs_ms_n_read(1,Nfleet,1,Nobs_ms,1,n_abins2)
-  imatrix  ageerr_type_ms(1,Nfleet,1,Nobs_ms)
-  imatrix  gen_ms(1,Nfleet,1,Nobs_ms)
-  imatrix  mkt_ms(1,Nfleet,1,Nobs_ms)
-  3darray header_ms(1,Nfleet,1,Nobs_ms,0,7)
-  3darray header_ms_rd(1,Nfleet,1,Nobs_ms,2,3)
-  matrix suprper_ms_sampwt(1,Nfleet,1,Nobs_ms)
-  imatrix suprper_ms1(1,Nfleet,1,N_suprper_ms)
-  imatrix suprper_ms2(1,Nfleet,1,N_suprper_ms)
+  imatrix msz_time_t(1,Nfleet,1,Nobs_ms);
+  imatrix msz_time_ALK(1,Nfleet,1,Nobs_ms);
+  3darray obs_ms(1,Nfleet,1,Nobs_ms,1,n_abins2);
+  3darray obs_ms_n(1,Nfleet,1,Nobs_ms,1,n_abins2);
+  3darray obs_ms_n_read(1,Nfleet,1,Nobs_ms,1,n_abins2);
+  imatrix  ageerr_type_ms(1,Nfleet,1,Nobs_ms);
+  imatrix  gen_ms(1,Nfleet,1,Nobs_ms);
+  imatrix  mkt_ms(1,Nfleet,1,Nobs_ms);
+  3darray header_ms(1,Nfleet,1,Nobs_ms,0,7);
+  3darray header_ms_rd(1,Nfleet,1,Nobs_ms,2,3);
+  matrix suprper_ms_sampwt(1,Nfleet,1,Nobs_ms);
+  imatrix suprper_ms1(1,Nfleet,1,N_suprper_ms);
+  imatrix suprper_ms2(1,Nfleet,1,N_suprper_ms);
 
 //  note:  sizeAge_Data[i](6) has age error method used; sign is positive to indicate mean length-at-age; negative for mean weight-at-age
  LOCAL_CALCS
@@ -2393,8 +2484,8 @@
 
 
 !!//  SS_Label_Info_2.10 #Read environmental data that will be used to modify processes and expected values
-  init_int N_envvar
-  int N_envdata
+  init_int N_envvar;
+  int N_envdata;
  LOCAL_CALCS
   echoinput<<N_envvar<<" N_envvar "<<endl;
 
@@ -2421,7 +2512,7 @@
   int iobs;
   init_int SzFreq_Nmeth;                                   // number of sizefreq methods to be read
   !!echoinput<<SzFreq_Nmeth<<" N sizefreq methods to read "<<endl;
-  imatrix SzFreq_HaveObs2(1,SzFreq_Nmeth,1,ALK_time_max)
+  imatrix SzFreq_HaveObs2(1,SzFreq_Nmeth,1,ALK_time_max);
   init_ivector SzFreq_Nbins(1,SzFreq_Nmeth);               //  number of bins for each method
   !!if(SzFreq_Nmeth>0) echoinput<<SzFreq_Nbins<<" Sizefreq N bins per method"<<endl;
   init_ivector SzFreq_units(1,SzFreq_Nmeth);               //  units for proportions (1 = biomass; 2=numbers ) for each method
@@ -2433,7 +2524,7 @@
   init_ivector SzFreq_nobs(1,SzFreq_Nmeth);
   !!if(SzFreq_Nmeth>0) echoinput<<SzFreq_nobs<<" Sizefreq N obs per method"<<endl;
   ivector SzFreq_Nbins_seas_g(1,SzFreq_Nmeth*nseas);   //  array dimensioner used only for the SzFreqTrans array
-  ivector SzFreq_Nbins3(1,SzFreq_Nmeth)        // doubles the Nbins if gender==2
+  ivector SzFreq_Nbins3(1,SzFreq_Nmeth);        // doubles the Nbins if gender==2
   int SzFreqMethod_seas;
 
  LOCAL_CALCS
@@ -2472,8 +2563,8 @@
   matrix SzFreq_bins(1,SzFreq_Nmeth,1,SzFreq_Nbins3);     //  szfreq bins as processed and doubled for the males if necessary
   matrix SzFreq_bins2(1,SzFreq_Nmeth,0,SzFreq_Nbins3+1);   //  as above, but one more bin to aid in the search for bin boundaries
   ivector SzFreq_Omit_Small(1,SzFreq_Nmeth);
-  int SzFreq_totobs
-  int SzFreq_N_Like
+  int SzFreq_totobs;
+  int SzFreq_N_Like;
   matrix SzFreq_means(1,SzFreq_Nmeth,1,SzFreq_Nbins3);     //  szfreq mean size in bins as processed and doubled for the males if necessary
 
  LOCAL_CALCS
@@ -2540,8 +2631,8 @@
 //  NOTE:  for the szfreq data, which are stored in one list and not by fleet, it is not possible to exclude from the working array on basis of before styr or after retroyr
   ivector SzFreq_Setup(1,SzFreq_totobs);  //  stores the number of bins plus header info to read into ragged array
   ivector SzFreq_Setup2(1,SzFreq_totobs);   //  stores the number of bins for each obs to create the ragged array
-  ivector SzFreq_time_t(1,SzFreq_totobs)
-  ivector SzFreq_time_ALK(1,SzFreq_totobs)
+  ivector SzFreq_time_t(1,SzFreq_totobs);
+  ivector SzFreq_time_ALK(1,SzFreq_totobs);
 
  LOCAL_CALCS
   if(SzFreq_Nmeth>0)
@@ -2563,11 +2654,11 @@
   // SzFreq_obs1:     Method, Year, season, Fleet, Gender, Partition, SampleSize, <data>
   // SzFreq_obs_hdr:     1=y; 2=month; 3=f; 4=gender; 5=partition; 6=method&skip flag; 7=first bin to use; 8=last bin(e.g. to include males or not); 9=flag to indicate transition matrix needs calculation
   vector SzFreq_sampleN(1,SzFreq_totobs);
-  vector SzFreq_effN(1,SzFreq_totobs)
+  vector SzFreq_effN(1,SzFreq_totobs);
   vector SzFreq_eachlike(1,SzFreq_totobs);
   matrix SzFreq_obs(1,SzFreq_totobs,1,SzFreq_Setup2);
-  imatrix SzFreq_LikeComponent(1,Nfleet,1,SzFreq_Nmeth)
-  number N_suprper_SzFreq   //  no real need to keep track of these by method, so just use a number
+  imatrix SzFreq_LikeComponent(1,Nfleet,1,SzFreq_Nmeth);
+  number N_suprper_SzFreq;   //  no real need to keep track of these by method, so just use a number
  LOCAL_CALCS
   SzFreq_N_Like=0;
   N_suprper_SzFreq=0;
@@ -2680,10 +2771,10 @@
  END_CALCS
 
 !!//  SS_Label_Info_2.11.3 #Calc logL for a perfect fit to the sizefreq data as an offset
-    vector SzFreq_like_base(1,SzFreq_N_Like)  // this is a constant offset, so can be declared in data section
-    ivector suprper_SzFreq_start(1,N_suprper_SzFreq)
-    ivector suprper_SzFreq_end(1,N_suprper_SzFreq)
-    vector suprper_SzFreq_sampwt(1,SzFreq_totobs)  //  will contain calculated weights for obs within super periods
+    vector SzFreq_like_base(1,SzFreq_N_Like);  // this is a constant offset, so can be declared in data section
+    ivector suprper_SzFreq_start(1,N_suprper_SzFreq);
+    ivector suprper_SzFreq_end(1,N_suprper_SzFreq);
+    vector suprper_SzFreq_sampwt(1,SzFreq_totobs);  //  will contain calculated weights for obs within super periods
 
  LOCAL_CALCS
   if(SzFreq_Nmeth>0)
@@ -2739,7 +2830,7 @@
   int Do_TG_rd;
   int Do_TG;
   int TG;
-  int N_TG   // N tag groups
+  int N_TG;   // N tag groups
   int N_TG2;
   int TG_timestart;
   int N_TG_recap;   //  N recapture events
@@ -2781,9 +2872,9 @@
   }
  END_CALCS
 
-  ivector TG_endtime(1,N_TG2)
-  ivector TG_use(1,N_TG2)  //  0/1 flag to indicate N recaptures >= TG_min_recap
-  init_matrix TG_release(1,N_TG,1,8)
+  ivector TG_endtime(1,N_TG2);
+  ivector TG_use(1,N_TG2);  //  0/1 flag to indicate N recaptures >= TG_min_recap
+  init_matrix TG_release(1,N_TG,1,8);
   // TG area  year season tindex gender age N_released
  LOCAL_CALCS
    TG_endtime(1)=0;
@@ -2804,7 +2895,7 @@
  END_CALCS
 
 !!//  SS_Label_Info_2.12.1 #Store recapture info by TG group and time to follow it as a cohort
-  init_matrix TG_recap_data(1,N_TG_recap,1,5)
+  init_matrix TG_recap_data(1,N_TG_recap,1,5);
   //  TG, year, season, fleet, gender, Number
   3darray TG_recap_obs(1,N_TG2,0,TG_endtime,0,Nfleet);   //  no area index because each fleet is in just one area
  LOCAL_CALCS
@@ -2839,14 +2930,14 @@
  END_CALCS
 
 !!//  SS_Label_Info_2.13 #Morph composition data
-   init_int Do_Morphcomp
+   init_int Do_Morphcomp;
   !!echoinput<<Do_Morphcomp<<" Do_Morphcomp(0/1) "<<endl;
-   int Morphcomp_nobs
-   int Morphcomp_nobs_rd
-   int Morphcomp_nmorph
-   number Morphcomp_mincomp
-   matrix Morphcomp_obs_rd(1,1,1,1)  //  reallocate if needed
-   matrix Morphcomp_obs(1,1,1,1)  //  reallocate if needed
+   int Morphcomp_nobs;
+   int Morphcomp_nobs_rd;
+   int Morphcomp_nmorph;
+   number Morphcomp_mincomp;
+   matrix Morphcomp_obs_rd(1,1,1,1);  //  reallocate if needed
+   matrix Morphcomp_obs(1,1,1,1);  //  reallocate if needed
  LOCAL_CALCS
   if(Do_Morphcomp==0)
   {
@@ -2925,7 +3016,7 @@
  END_CALCS
 
 !!//  SS_Label_Info_2.14 #End of datafile indicator
-  init_int fid
+  init_int fid;
   !! if(fid!=999) {cout<<" final data value in error "<<fid<<endl; exit(1);}
   !! cout<<"Data read sucessful "<<fid<<endl<<endl;
   !!echoinput<<" data read successful"<<endl<<endl;
@@ -2952,18 +3043,18 @@
     }
   }
  END_CALCS
-  int Do_Benchmark  // 0=skip; 1= do Fspr, Fbtgt, Fmsy; 2=do Fspr, F0.1, Fmsy
-  int Do_MSY   //  1= set to F(SPR); 2=calc F(MSY); 3=set to F(Btgt) or F0.1; 4=set to F(endyr)
+  int Do_Benchmark;  // 0=skip; 1= do Fspr, Fbtgt, Fmsy; 2=do Fspr, F0.1, Fmsy
+  int Do_MSY;   //  1= set to F(SPR); 2=calc F(MSY); 3=set to F(Btgt) or F0.1; 4=set to F(endyr)
   int did_MSY;
   int show_MSY;
   int wrote_bigreport;
-  ivector Bmark_Yr_rd(1,10)
-  ivector Bmark_Yr(1,10)
-  ivector Bmark_t(1,2)  //  for range of time values for averaging body size
-  number SPR_target
-  number BTGT_target
-  number Blim_frac
-  int MSY_units // 1=dead catch, 2=retained catch, 3=retained catch profits
+  ivector Bmark_Yr_rd(1,10);
+  ivector Bmark_Yr(1,10);
+  ivector Bmark_t(1,2);  //  for range of time values for averaging body size
+  number SPR_target;
+  number BTGT_target;
+  number Blim_frac;
+  int MSY_units; // 1=dead catch, 2=retained catch, 3=retained catch profits
   vector CostPerF(1,Nfleet);
   vector PricePerF(1,Nfleet);
   ivector AdjustBenchF(1,Nfleet);
@@ -3097,7 +3188,7 @@
   echoinput<<Bmark_Yr<<" Benchmark years as processed"<<endl;
   echoinput<<"next read:  1=use range of years as read for relF; 2 = set same as forecast relF below"<<endl;
  END_CALCS
-  init_int Bmark_RelF_Basis
+  init_int Bmark_RelF_Basis;
 
  LOCAL_CALCS
   echoinput<<Bmark_RelF_Basis<<"  echoed Bmark_RelF_year basis"<<endl;
@@ -3105,48 +3196,48 @@
   {N_warn++; cout<<"exit with bad input; see warning"<<endl; warning<<N_warn<<"  Do_MSY=5, so must use Bmark_RelF_Basis=1"<<endl; exit(1);}
   echoinput<<endl<<"next read forecast basis: 0=none; 1=F(SPR); 2=F(MSY) 3=F(Btgt); 4=Ave F (enter yrs); 5=read Fmult"<<endl;
  END_CALCS
-  init_int Do_Forecast_rd
-  int Do_Forecast
+  init_int Do_Forecast_rd;
+  int Do_Forecast;
   !! Do_Forecast=Do_Forecast_rd;
   !!echoinput<<Do_Forecast<<" echoed Forecast basis"<<endl;
 
   vector Fcast_Input(1,24);
 
-  int N_Fcast_Yrs
-  ivector Fcast_yr(1,6)  // yr range for selex, then yr range for either allocation or for average F
-  ivector Fcast_yr_rd(1,6)
-  int Fcast_Sel_yr1
-  int Fcast_Sel_yr2
-  int Fcast_RelF_yr1
-  int Fcast_RelF_yr2
-  int Fcast_Rec_yr1
-  int Fcast_Rec_yr2
-  int Fcast_RelF_Basis  // 1=use year range; 2=read below
-  number Fcast_Flevel
-  int Do_Rebuilder
-  int Rebuild_Ydecl
-  int Rebuild_Yinit
-  int HarvestPolicy  // 0=none; 1=west coast adjust catch; 2=AK to adjust F
-  number H4010_top
-  number H4010_bot
-  number H4010_scale
-  number H4010_scale_rd
-  int Do_Impl_Error
-  number Impl_Error_Std
-  vector Fcast_Loop_Control(1,5)
-  int N_Fcast_Input_Catches
-  int Fcast_InputCatch_Basis  //  2=dead catch; 3=retained catch;  99=F; -1=read fleet/time specific  (biomass vs numbers will match catchunits(fleet)
-  int Fcast_Catch_Basis  //  2=dead catch bio, 3=retained catch bio, 5= dead catch numbers 6=retained catch numbers;   Same for all fleets
+  int N_Fcast_Yrs;
+  ivector Fcast_yr(1,6);  // yr range for selex, then yr range for either allocation or for average F
+  ivector Fcast_yr_rd(1,6);
+  int Fcast_Sel_yr1;
+  int Fcast_Sel_yr2;
+  int Fcast_RelF_yr1;
+  int Fcast_RelF_yr2;
+  int Fcast_Rec_yr1;
+  int Fcast_Rec_yr2;
+  int Fcast_RelF_Basis;  // 1=use year range; 2=read below
+  number Fcast_Flevel;
+  int Do_Rebuilder;
+  int Rebuild_Ydecl;
+  int Rebuild_Yinit;
+  int HarvestPolicy;  // 0=none; 1=west coast adjust catch; 2=AK to adjust F
+  number H4010_top;
+  number H4010_bot;
+  number H4010_scale;
+  number H4010_scale_rd;
+  int Do_Impl_Error;
+  number Impl_Error_Std;
+  vector Fcast_Loop_Control(1,5);
+  int N_Fcast_Input_Catches;
+  int Fcast_InputCatch_Basis;  //  2=dead catch; 3=retained catch;  99=F; -1=read fleet/time specific  (biomass vs numbers will match catchunits(fleet)
+  int Fcast_Catch_Basis;  //  2=dead catch bio, 3=retained catch bio, 5= dead catch numbers 6=retained catch numbers;   Same for all fleets
 
   int Fcast_Catch_Allocation_Groups;
   int Fcast_Do_Fleet_Cap;
   int Fcast_Do_Area_Cap;
   int Fcast_Cap_FirstYear;
-  vector Fcast_MaxFleetCatch(1,Nfleet)
-  vector Fcast_MaxAreaCatch(1,pop)
-  ivector Allocation_Fleet_Assignments(1,Nfleet)
-  matrix Fcast_RelF_Input(1,nseas,1,Nfleet)
-  int Fcast_Specify_Selex   // 0=do not use; 1=specify one selectivity for all fishing fleets for forecasts (not implemented); 2=specify selectivity per fishing fleet for forecasts (not implemented)
+  vector Fcast_MaxFleetCatch(1,Nfleet);
+  vector Fcast_MaxAreaCatch(1,pop);
+  ivector Allocation_Fleet_Assignments(1,Nfleet);
+  matrix Fcast_RelF_Input(1,nseas,1,Nfleet);
+  int Fcast_Specify_Selex;   // 0=do not use; 1=specify one selectivity for all fishing fleets for forecasts (not implemented); 2=specify selectivity per fishing fleet for forecasts (not implemented)
 
  LOCAL_CALCS
   Fcast_MaxFleetCatch.initialize();
@@ -3541,9 +3632,9 @@
 
  END_CALCS
 
-  3darray Fcast_InputCatch(k1,y,1,Nfleet,1,2)  //  values and basis to be used
-  matrix Fcast_InputCatch_rd(1,N_Fcast_Input_Catches,1,j)
-  imatrix Fcast_RelF_special(1,nseas,1,Nfleet)  //  records whether an input catch or F occurs
+  3darray Fcast_InputCatch(k1,y,1,Nfleet,1,2);  //  values and basis to be used
+  matrix Fcast_InputCatch_rd(1,N_Fcast_Input_Catches,1,j);
+  imatrix Fcast_RelF_special(1,nseas,1,Nfleet);  //  records whether an input catch or F occurs
 
  LOCAL_CALCS
   Fcast_InputCatch.initialize();
@@ -3670,14 +3761,14 @@
   }
  END_CALCS
 
-//  matrix env_data_RD(styr-1,YrMax,1,N_envvar)
-  vector env_data_mean(1,N_envvar)
-  vector env_data_stdev(1,N_envvar)
-  vector env_data_N(1,N_envvar)
-  ivector env_data_minyr(1,N_envvar)
-  ivector env_data_maxyr(1,N_envvar)
-  ivector env_data_do_mean(1,N_envvar)
-  ivector env_data_do_stdev(1,N_envvar)
+//  matrix env_data_RD(styr-1,YrMax,1,N_envvar);
+  vector env_data_mean(1,N_envvar);
+  vector env_data_stdev(1,N_envvar);
+  vector env_data_N(1,N_envvar);
+  ivector env_data_minyr(1,N_envvar);
+  ivector env_data_maxyr(1,N_envvar);
+  ivector env_data_do_mean(1,N_envvar);
+  ivector env_data_do_stdev(1,N_envvar);
 
  LOCAL_CALCS
   {
@@ -3735,10 +3826,10 @@
 
 
 !!//  SS_Label_Info_3.2 #Create complete list of years for STD reporting
-  ivector STD_Yr_Reverse(styr-2,YrMax)
-  ivector STD_Yr_Reverse_Dep(styr-2,YrMax)
-  ivector STD_Yr_Reverse_Ofish(styr-2,YrMax)
-  ivector STD_Yr_Reverse_F(styr-2,YrMax)
+  ivector STD_Yr_Reverse(styr-2,YrMax);
+  ivector STD_Yr_Reverse_Dep(styr-2,YrMax);
+  ivector STD_Yr_Reverse_Ofish(styr-2,YrMax);
+  ivector STD_Yr_Reverse_F(styr-2,YrMax);
   int N_STD_Yr_Dep;
   int N_STD_Yr_Ofish;
   int N_STD_Yr_F;
