@@ -7,58 +7,58 @@
 // SS_Label_file  #
 
 //*********COUNTERS*************************
-  int z // counters for size (length)
-  int z1 // min for z counter
-  int z2 // max for z counter
-  int L1 //  for selecting sex specific length data
-  int L2 //  used for l+nlength to get length bin for males
-  int A2 //  used for a+nages+1 to get true age bin for males
-  int a1 // use to track a subset of ages
-  int f // counter for fleets and surveys.  total is Ntypes
-  int f1 // another fleet counter
-  int fs //  counter for fleets when looping across size and ageselex; so = f-Ntypes
+  int z;  // counters for size (length)
+  int z1; // min for z counter
+  int z2; // max for z counter
+  int L1; //  for selecting sex specific length data
+  int L2; //  used for l+nlength to get length bin for males
+  int A2; //  used for a+nages+1 to get true age bin for males
+  int a1; // use to track a subset of ages
+  int f;  // counter for fleets and surveys.  total is Ntypes
+  int f1; // another fleet counter
+  int fs; //  counter for fleets when looping across size and ageselex; so = f-Ntypes
 
-  int gmorph // number of biological entities:  gender*GP*BirthEvent*Platoon
-  int g // counter for biological entity
-  int GPat //  counter for Gpattern (morph)
-  int gg // counter for sex
-  int gp //  counter for sex*GPat  or for Gpat
-  int gp2 //  used to loop platoons within Gpattern
+  int gmorph; // number of biological entities:  gender*GP*BirthEvent*Platoon
+  int g;  // counter for biological entity
+  int GPat; //  counter for Gpattern (morph)
+  int gg; // counter for sex
+  int gp; //  counter for sex*GPat  or for Gpat
+  int gp2; //  used to loop platoons within Gpattern
 
-  int a // counter for ages
-  int b // counter for age bins
-  int p // counter for area
-  int p1 // counter for destination area in migration
-  int p2 // counter for destination area in migration
-  int i // counter for observations
-  int y // counter for year
-  int yz // year, but not allowed to extend past endyr
-  int s // counter for seasons
-  int s2 // destination season
-  int mid_subseas //  index of the subseas that corresponds to the middle of the season
-  int subseas //  subseas, mostly used to calc ALK_idx
-  int ALK_idx //  index to which subseas within current year to use for the ALK  ALK_idx=(s-1)*N_subseas+subseas
-  int ALK_time //  continuous index to subseas =(y-styr)*nseas*N_subseas+ALK_idx
-  int ALK_idx_mid //  index of subseason at middle of season
-  int t // counter for time, combining year and season
-  int mo //  month (1-12), not (0-11)
-  int j
-  int j1
-  int j2
-  int k
-  int k1
-  int k2
-  int k3
-  int s_off // offset for male section of vectors
-  int Fishon // whether or not to do fishery catch in equil_calc
-  int NP // number of parameters
-  int Ip // parameter counter
-  int firstseas // used to start season loops at the birthseason
+  int a;  // counter for ages
+  int b;  // counter for age bins
+  int p;  // counter for area
+  int p1; // counter for destination area in migration
+  int p2; // counter for destination area in migration
+  int i;  // counter for observations
+  int y;  // counter for year
+  int yz; // year, but not allowed to extend past endyr
+  int s;  // counter for seasons
+  int s2; // destination season
+  int mid_subseas; //  index of the subseas that corresponds to the middle of the season
+  int subseas; //  subseas, mostly used to calc ALK_idx
+  int ALK_idx; //  index to which subseas within current year to use for the ALK  ALK_idx=(s-1)*N_subseas+subseas
+  int ALK_time; //  continuous index to subseas =(y-styr)*nseas*N_subseas+ALK_idx
+  int ALK_idx_mid; //  index of subseason at middle of season
+  int t;  // counter for time, combining year and season
+  int mo; //  month (1-12), not (0-11)
+  int j;
+  int j1;
+  int j2;
+  int k;
+  int k1;
+  int k2;
+  int k3;
+  int s_off; // offset for male section of vectors
+  int Fishon; // whether or not to do fishery catch in equil_calc
+  int NP; // number of parameters
+  int Ip; // parameter counter
+  int firstseas; // used to start season loops at the birthseason
   int t_base; //
-  int niter // iteration count
-  int loop
+  int niter; // iteration count
+  int loop;
   int TG_t; // time counter (in seasons) for tag groups
-  int Fcast_catch_start
+  int Fcast_catch_start;
 // int ParCount;
   int retParCount;
   int N_SC; // counter for starter comments
@@ -70,10 +70,10 @@
 
   int frac_female_pointer;
   int finished_minimize;
-  int icycle
-  int No_Report //  flag to skip output reports after MCMC and MCeval
-  int mcmcFlag
-  int noest_flag
+  int icycle;
+  int No_Report; //  flag to skip output reports after MCMC and MCeval
+  int mcmcFlag;
+  int noest_flag;
   number temp;
   number temp1;
   int save_for_report;
@@ -252,7 +252,7 @@
     pick_report_name += "Dynamic_Bzero report:59"; pick_report_use += "N";
     pick_report_name += "wtatage.ss_new report:60"; pick_report_use += "N";
 
-//  check command line inputs
+// check command line inputs
 
   if ((on = option_match(argc,argv,"-noest")) > -1)
   {
@@ -264,7 +264,7 @@
 
   if ((on = option_match(argc,argv,"-maxI")) > -1 || (on = option_match(argc,argv,"-stopph")) > -1)
   {
-//  	if maxI > 999, maxphase will reset to maxI
+    // if maxI > 999, maxphase will reset to maxI
     maxI = atoi(ad_comm::argv[on+1]);
   	echoinput << "read max phase to override starter file's maxphase " << maxI << endl;
   }
@@ -276,7 +276,7 @@
   }
   echoinput << " -nohess flag (1 means do Hessian): " << SDmode << endl;
 
-//  SS_Label_Info_1.2  #Read the starter.ss file
+// SS_Label_Info_1.2  #Read the starter.ss file
 // /*  SS_Label_Flow  read starter.ss */
   ad_comm::change_datafile_name("starter.ss");       //  get filenames
   cout << " reading from starter.ss" << endl;
@@ -565,20 +565,20 @@
   int depletion_log
   init_int depletion_basis_rd   // 0=skip; 1=fraction of B0; 2=fraction of Bmsy where fraction is depletion_level 3=rel to styr; values >=11 invoke multiyr with 10's digit; >=100 invoke log(ratio) with hundreds digit
  LOCAL_CALCS
-   echoinput<<depletion_basis_rd<<"  depletion_basis as read; this is also known as Bratio and is a std quantity; has multi-yr and log(ratio) options"<<endl;
+   echoinput << depletion_basis_rd << "  depletion_basis as read; this is also known as Bratio and is a std quantity; has multi-yr and log(ratio) options" << endl;
    	depletion_multi = 0;
    	depletion_log = 0;
     k=depletion_basis_rd;
-    depletion_basis = depletion_basis_rd;  //  default
+    depletion_basis = depletion_basis_rd;  // default
 
-    if (k >= 100) //  invokes log(ratio)
+    if (k >= 100) // invokes log(ratio)
     {
       k -= 100;
       depletion_log = 1;
       depletion_basis = k;
     }
 
-    if (k > 10) //  invokes multiyr
+    if (k > 10) // invokes multiyr
     {
       depletion_multi = int(k / 10);
       depletion_basis = k - 10 * depletion_multi;
@@ -613,11 +613,11 @@
   }
  END_CALCS
 
-  init_int F_std_basis_rd // 0=raw; 1=rel Fspr; 2=rel Fmsy ; 3=rel Fbtgt; values >=11 invoke multiyr with 10's digit; >=100 invoke log(ratio) with hundreds digit
-  number finish_starter
-  int mcmc_output_detail
-  number MCMC_bump  //  value read and added to ln(R0) when starting into MCMC
-  number ALK_tolerance
+  init_int F_std_basis_rd; // 0=raw; 1=rel Fspr; 2=rel Fmsy ; 3=rel Fbtgt; values >=11 invoke multiyr with 10's digit; >=100 invoke log(ratio) with hundreds digit
+  number finish_starter;
+  int mcmc_output_detail;
+  number MCMC_bump;  //  value read and added to ln(R0) when starting into MCMC
+  number ALK_tolerance;
   number tempin;
   int ender;
   int irand_seed;
@@ -747,28 +747,28 @@
   }
  END_CALCS
 
-  //  end reading  from Starter file
+  // end reading  from Starter file
 
-  number pi
+  number pi;
   !!  pi = 3.14159265358979;
 
-  number neglog19
+  number neglog19;
   !!  neglog19 = -log(19.);
 
-  number NilNumbers           //  used as the minimum for posfun and similar checks
+  number NilNumbers;     // used as the minimum for posfun and similar checks
   !! NilNumbers = 0.0000001;
 // !!   NilNumbers = 0.000;
 
 !!//  SS_Label_Info_1.2.1 #Set up a dummy datum for use when max phase = 0
-  number dummy_datum
-  int dummy_phase
+  number dummy_datum;
+  int dummy_phase;
   !! dummy_datum = 1.;
   !! if (Turn_off_phase <= 0) {dummy_phase = 0;} else {dummy_phase = -6;}
 
-  int runnumber
+  int runnumber;
   int N_prof_var;
-  int prof_var_cnt
-  int prof_junk
+  int prof_var_cnt;
+  int prof_junk;
 
  LOCAL_CALCS
   //  SS_Label_Info_1.3 #Read runnumber.ss
