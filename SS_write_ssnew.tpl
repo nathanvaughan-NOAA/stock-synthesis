@@ -1508,7 +1508,7 @@ FUNCTION void write_nucontrol()
   {
     NuFore << Fcast_Loop_Control(4) << " # value is multiplier on virgin recr" << endl;
   }
-  else if (Fcast_Loop_Control(3) == 3)
+  else if (Fcast_Loop_Control(3) >= 3)
   {
     NuFore << Fcast_Loop_Control(4) << " # not used" << endl;
   }

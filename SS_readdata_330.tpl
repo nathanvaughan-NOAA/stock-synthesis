@@ -4041,7 +4041,7 @@
     {
       echoinput << Fcast_Loop_Control(4) << " #echoed Forecast loop control #4:  multiplier on virgin recr" << endl;
     }
-    else if (Fcast_Loop_Control(3) == 3)
+    else if (Fcast_Loop_Control(3) >= 3)
     {
       echoinput << " #mean recruitment and recrdist from years: " << Fcast_Rec_yr1 << " to " << Fcast_Rec_yr2 << endl;
     }

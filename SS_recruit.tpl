@@ -253,6 +253,36 @@ FUNCTION void apply_recdev(prevariable& NewRecruits, const prevariable& Recr_vir
         exp_rec(y, 3) = NewRecruits; //  store in the bias-adjusted field
         break;
       }
+      case 4: //  use recent mean excluding late rec devs period
+      {
+        if (y <= endyr)
+        {
+          if (recdev_doit(y) > 0)
+          {
+            if (do_recdev >= 3)
+            {
+              NewRecruits = Recr_virgin_adj * mfexp(recdev(y)); //  recruitment deviation
+            }
+            else if (SR_fxn != 7)
+            {
+              NewRecruits *= mfexp(recdev(y)); //  recruitment deviation
+            }
+          }
+        }
+        else
+        {
+          //  values going into the mean have already been bias adjusted and had dev applied, so take straight mean
+          NewRecruits = 0.0;
+          for (j = Fcast_Rec_yr1; j <= Fcast_Rec_yr2; j++)
+          {
+            NewRecruits += exp_rec(j, 4);
+          }
+          NewRecruits /= (Fcast_Rec_yr2 - Fcast_Rec_yr1 + 1);
+          exp_rec(y, 2) = NewRecruits;
+          exp_rec(y, 3) = NewRecruits; //  store in the bias-adjusted field
+          break;
+        }
+      }
     }
     if (do_recdev > 0)
       NewRecruits *= mfexp(Fcast_recruitments(y)); //  recruitment deviation

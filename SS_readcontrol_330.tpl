@@ -2237,7 +2237,7 @@
   echoinput << recdev_early_PH_rd << " #_recdev_early_phase" << endl;
   echoinput << Fcast_recr_PH_rd << " #_forecast_recruitment phase (incl. late recr) (0 value resets to maxphase+1)" << endl;
   echoinput << Fcast_recr_lambda << " #_lambda for Fcast_recr_like occurring before endyr+1" << endl;
-  if (Fcast_Loop_Control(3) == 3 && Fcast_recr_PH_rd >= 0)
+  if (Fcast_Loop_Control(3) >= 3 && Fcast_recr_PH_rd >= 0)
   {
     N_warn++;
     warning << N_warn << " mean recruitment for forecast is incompatible with pos. phase for forecast rec_devs; set phase to neg. unless using late rec_devs" << endl;

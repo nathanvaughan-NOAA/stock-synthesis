@@ -120,7 +120,7 @@ FUNCTION void setup_Benchmark()
     //          fec(g)=save_sel_num(t,0,g);
     //       }
 
-    if (Fcast_Loop_Control(3) == 3) //  using mean recruitment from range of years
+    if (Fcast_Loop_Control(3) >= 3) //  using mean recruitment from range of years
     {
       //get average and store in each fcast years
       recr_dist_endyr.initialize();
@@ -1894,7 +1894,7 @@ FUNCTION void Get_Forecast()
     report5 << "Annual_Forecast_Fmult: " << Fcast_Fmult << endl;
     report5 << "Fmultiplier_during_selected_relF_years_was: " << Fcurr_Fmult << endl;
     report5 << "Selectivity_averaged_over_yrs:_" << Fcast_Sel_yr1 << "_to_" << Fcast_Sel_yr2 << endl;
-    if (Fcast_Loop_Control(3) == 3)
+    if (Fcast_Loop_Control(3) >= 3)
     {
       report5 << "Recruitment_and_recrdist_averaged_over_yrs:_" << Fcast_Rec_yr1 << "_to_" << Fcast_Rec_yr2 << endl;
     }
@@ -2246,7 +2246,7 @@ FUNCTION void Get_Forecast()
         if (Hermaphro_Option != 0)
           get_Hermaphro();
       }
-      if ((timevary_MG(y, 4) > 0 || timevary_MG(endyr + 1, 4) > 0) && Fcast_Loop_Control(3) != 3)
+      if ((timevary_MG(y, 4) > 0 || timevary_MG(endyr + 1, 4) > 0) && Fcast_Loop_Control(3) < 3)
       {
         get_recr_distribution();
       }
